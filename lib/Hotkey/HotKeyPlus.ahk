@@ -12,13 +12,61 @@ class HotKeyPlus {
     __New(key, callBack, needRelease := false, holdTime := 0, reverseHold := false, mainKeys := "", options := "") {
         this.Key := key
         this.callBack := callBack
-
         this.needRelease := needRelease
         this.holdTime := holdTime
         this.reverseHold := reverseHold
+        this.hook := InputHook('VT' holdTime / 1000)
+        this.taskState := ""
 
         this.mainKeys := this.ParseMainKeys(mainKeys)
-        Hotkey(key, (_) => this.CheckCondition(), options)
+        ; Hotkey(key, (_) => this.CheckCondition(), options)
+        Hotkey(key, (_) => this.OnPressed(), options)
+        if (needRelease || holdTime > 0)
+            Hotkey((mainKeys == "" ? key : mainKeys) " Up", (_) => this.OnReleased(), options)
+    }
+
+    OnPressed() {
+        ; 防止长按时重复触发
+        if (this.taskState == "Waitting")
+            return
+
+        this.taskState := "Waitting"
+
+        ; press 或者 release 不需要处理后面的 hook
+        if (this.holdTime <= 0) {
+            ; press 直接触发
+            if (!this.needRelease)
+                this.UpdateState("Successed")
+
+            return
+        }
+
+        this.hook.Start()
+        this.hook.Wait()
+
+        ; long_press
+        if (!this.needRelease && this.hook.EndReason == "Timeout") {
+            this.UpdateState("Successed")
+        }
+    }
+
+    OnReleased() {
+        ; 如果有其他主键在这个过程中被按下则不触发
+        if (this.mainKeys[-1] != A_PriorKey)
+            return
+
+        ; release 直接触发
+        if (this.holdTime <= 0) {
+            this.UpdateState("Successed")
+            return
+        }
+
+        ; 超时判断是否反转
+        isSuccessed := this.reverseHold && this.hook.EndReason != "Timeout"
+            || !this.reverseHold && this.hook.EndReason == "Timeout"
+
+        this.UpdateState(isSuccessed ? "Successed" : "Canceled")
+        this.hook.Stop()
     }
 
     ParseMainKeys(mainKeys := "") {
@@ -26,61 +74,10 @@ class HotKeyPlus {
         spliteKeys := mainKeys == "" ? HotKeyPlus.SplitKeys(this.Key) : HotKeyPlus.SplitKeys(mainKeys)
         ;如果是 Release 则获取主键
         if (this.needRelease) {
-            return spliteKeys[-1]
+            return [spliteKeys[-1]]
         }
         ;否则获取所有按键
         return spliteKeys
-    }
-
-    ; 对单个修饰键作为主键的情况，不会正常等待release
-    CheckCondition() {
-        this.GUID := CreateGUID()
-        this.lWin := GetKeyState("LWin", "P")
-        this.rWin := GetKeyState("RWin", "P")
-
-        this.taskState := "Waitting"
-
-        ; 只有 HoldTime > 0 （long_press long_release short_press）才需要在这里等待判断成功或失败
-        ; 不限时的 Release 在 Timeout 中自动成功
-        if (this.holdTime > 0) {
-            guid := this.GUID
-            ;
-            SetTimer(Timeout, -this.holdTime)
-            if (this.reverseHold) {
-                ; 反转的情况是限时释放，需要所有必要按键都释放才算成功
-                ; 而等到 Timeout 则会失败
-                this.WaitKeyRelease(this.mainKeys, "All")
-                this.UpdateState("Successed")
-            } else {
-                ; 非反转的情况等到 Timeout 算成成功
-                ; 但如果此前从开了任意必要按键，则会失败
-                this.WaitKeyRelease(this.mainKeys, "Any")
-                this.UpdateState("Canceled")
-            }
-        } else
-            this.Timeout()
-
-        Timeout() {
-            () => this.Timeout(guid)
-        }
-    }
-
-    Timeout(guid := "") {
-        ; 由于 Timeout 不会自动取消，所以需要检测 GUID 判断是否已经失效
-        if (guid != this.GUID)
-            return
-
-        if (this.needRelease && this.reverseHold) {
-            this.UpdateState("Canceled")
-            ; MsgBox("超时咯！")
-            return
-        }
-
-        if (this.needRelease) {
-            this.WaitKeyRelease(this.mainKeys, "All")
-        }
-
-        this.UpdateState("Successed")
     }
 
     ; 在可更新的状况下更新状态，并处理回调
@@ -93,46 +90,8 @@ class HotKeyPlus {
         if (newState == "Successed") {
             excute := this.callBack
             excute()
-            ; 回调后还要防止重复触发，需要在 press 的情况下再等待一次任意键弹起
-            if (!this.needRelease) {
-                this.WaitKeyRelease(this.mainKeys, "Any")
-            }
         }
 
-    }
-
-    ; 等待按键释放
-    ; keys: 按键列表
-    ; option: 选项
-    ; "Any" - 任意按键释放
-    ; "All" - 所有按键释放
-    WaitKeyRelease(keys, option := "All") {
-        ; 如果是单键，转换成数组才能 for
-        if (Type(keys) == "String")
-            keys := [keys]
-
-        while (true) {
-            shouldRelease := option != "Any" ; 不为 Any 时才能初始为 true
-            for k in keys {
-                if (option == "Any") {
-                    if (k == "Win")
-                        isKeyUp := !(this.lWin && GetKeyState("LWin"))
-                            && !(this.rWin && GetKeyState("RWin"))
-                    else
-                        isKeyUp := !GetKeyState(k)
-
-                    if isKeyUp {
-                        ; any 时，只要检测到任意一个键没有按下，就 break
-                        shouldRelease := true
-                        break
-                    }
-                }
-                ; All 则要保证所有按键都释放
-                shouldRelease := shouldRelease && !GetKeyState(k)
-            }
-            if (shouldRelease)
-                break
-        }
     }
 
     static SplitKeys(key) {
