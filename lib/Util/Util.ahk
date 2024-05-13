@@ -76,31 +76,4 @@ class Util {
         }
         return matches.Length > 0
     }
-
-    static GetActiveWindowId(title := "A") {
-        temp := A_DetectHiddenWindows
-        DetectHiddenWindows True
-
-        hwnd := ControlGetFocus(title)
-        if (!hwnd) {
-            hwnd := WinExist(title)
-        }
-
-        ; 如果是 UWP 则用另外的方法获取 ID
-        ; if WinGetProcessName(hwnd) == "ApplicationFrameHost.exe" {
-        ;     childPID := ''
-
-        ;     pid := WinGetPID(hwnd)
-
-        ;     for c in WinGetControls(hwnd)
-        ;         DllCall(KBLTool.GetWindowThreadProcessId, "Ptr", c, "UintP", childPID)
-        ;     until childPID != pid
-
-        ;     DetectHiddenWindows true
-        ;     hwnd := WinExist("ahk_pid" childPID)
-        ; }
-
-        DetectHiddenWindows temp
-        return hwnd
-    }
 }

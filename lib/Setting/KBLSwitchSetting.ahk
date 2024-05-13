@@ -1,12 +1,12 @@
 #Requires AutoHotkey v2.0
 #Include ..\Util\Util.ahk
-#Include ..\Util\CorrectArray.ahk
 
 ; 用于存储键盘布局切换设置
-class KBLSwitcherSetting {
+class KBLSwitchSetting {
 
     static ModifierToMark := Map("Win", "#", "Alt", "!", "Shift", "+", "Ctrl", "^", "L", "<", "R", ">")
     static MarkToModifier := Map("#", "Win", "!", "Alt", "+", "Shift", "^", "Ctrl", "<", "L", ">", "R")
+    static KBLSwitchSettings := Map()
 
     __New(name, key, condition, layouts) {
         this.Name := name
@@ -15,18 +15,23 @@ class KBLSwitcherSetting {
         this.Layouts := layouts
     }
 
+    static __Item[i] => KBLSwitchSetting.KBLSwitchSettings[i]
     __Item[i] => this.Layouts[i]
+
+    static Initialize(iniFile) {
+        KBLSwitchSetting.KBLSwitchSettings := KBLSwitchSetting.FromINI(iniFile)
+    }
 
     ; 从 ini 文件中读取设置并返回 KBLSwitchSetting 对象
     static FromINISection(iniFile, value) {
 
-        key := Util.INIRead(iniFile, "KBLSwitcher." value, "key", "LShift")
+        key := Util.INIRead(iniFile, "KBLSwitch." value, "key", "LShift")
 
-        condition := KBLSwitcherSetting.ParseCondition(value, key, Util.INIRead(iniFile, "KBLSwitcher." value, "condition", "long_release(500)"))
+        condition := KBLSwitchSetting.ParseCondition(value, key, Util.INIRead(iniFile, "KBLSwitch." value, "condition", "long_release(500)"))
 
-        kbls := KBLSwitcherSetting.ParseKBLayout(Util.INIRead(iniFile, "KBLSwitcher." value, "layouts", "US: 0x0, 中文 (简体) - 美式: 0x1"))
+        kbls := KBLSwitchSetting.ParseKBLayout(Util.INIRead(iniFile, "KBLSwitch." value, "layouts", "US: 0x0, 中文 (简体) - 美式: 0x1"))
 
-        return KBLSwitcherSetting(value, key, condition, kbls)
+        return KBLSwitchSetting(value, key, condition, kbls)
     }
 
     static SplitKeys(key) {
@@ -35,8 +40,8 @@ class KBLSwitcherSetting {
         ; key的格式为 N个修饰符与一个主键结合，其中修饰符可能有<或者>标注
         Util.RegExMatch(key, "(<|>)?(\+|\^|\#|\!)", &matches, &groups)
         for e in groups {
-            prefix := e[1] != "" ? KBLSwitcherSetting.MarkToModifier[e[1]] : ""
-            modifier := prefix KBLSwitcherSetting.MarkToModifier[e[2]]
+            prefix := e[1] != "" ? KBLSwitchSetting.MarkToModifier[e[1]] : ""
+            modifier := prefix KBLSwitchSetting.MarkToModifier[e[2]]
             arr.Push(modifier)
         }
 
@@ -47,7 +52,7 @@ class KBLSwitcherSetting {
     }
 
     static ParseCondition(value, key, condition) {
-        releaseKeys := Util.INIRead(iniFile, "KBLSwitcher." value, "release_key", "")
+        releaseKeys := Util.INIRead(iniFile, "KBLSwitch." value, "release_key", "")
 
         holdTime := 0
         reverse := false
@@ -62,18 +67,18 @@ class KBLSwitcherSetting {
 
         holdTime := RegExMatch(condition, "\d+", &holdTime) ? holdTime[0] : 0
 
-        return KBLSwitcherSetting.Condition(release, reverse, holdTime, releaseKeys)
+        return KBLSwitchSetting.Condition(release, reverse, holdTime, releaseKeys)
     }
 
     static ParseKBLayout(str) {
-        arr := CorrectArray()
+        arr := Array()
         loop parse str, ",", " " {
             str := StrSplit(A_LoopField, ":", " ")
 
             name := str[1]
             defualtState := str.Length > 1 ? Integer(str[2]) : 0x0
 
-            arr.Push(KBLSwitcherSetting.Layout(name, defualtState))
+            arr.Push(KBLSwitchSetting.Layout(name, defualtState))
         }
         return arr
     }
@@ -81,7 +86,12 @@ class KBLSwitcherSetting {
     ; 从 ini 文件中读取所有键值对并返回 Map 对象
     static FromINI(iniFile) {
         ; 从 Ini 文件中读取所有键值对并根据 FromIni 转换为 KBLSwitchSetting 对象
-        return Util.INIReadForeach(iniFile, "KBLSwitcher", KBLSwitcherSetting.FromINISection)
+        arr := Util.INIReadForeach(iniFile, "KBLSwitch", KBLSwitchSetting.FromINISection)
+        dic := Map()
+        for i, e in arr {
+            dic[e.Key] := e
+        }
+        return dic
     }
 
 

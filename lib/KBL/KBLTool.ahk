@@ -1,5 +1,7 @@
 #Requires AutoHotkey v2.0
 
+#Include KeyboardLayout.ahk
+
 class KBLTool {
     static KBLCodes := Map()
     static ImmGetDefaultIMEWnd := DllCall("GetProcAddress", "Ptr", DllCall("LoadLibrary", "Str", "imm32", "Ptr"), "AStr", "ImmGetDefaultIMEWnd", "Ptr") ; 获取 ImmGetDefaultIMEWnd 函数的指针
@@ -44,51 +46,53 @@ class KBLTool {
     }
 
     ; 从当前窗口获取 IME 窗口句柄
-    static GetIMEWinId(winTitle := "A") {
-        winId := WinGetID("A")
-        WinId := KBLTool.CheckUWPWinId(WinId)
-
-        IMEWinId := DllCall(KBLTool.ImmGetDefaultIMEWnd, "Uint", winId, "Uint")
+    static GetIMEWinId(hWnd) {
+        hWnd := KBLTool.CheckUWPWinId(hWnd)
+        IMEWinId := DllCall(KBLTool.ImmGetDefaultIMEWnd, "Uint", hWnd, "Uint")
         return IMEWinId
     }
 
-    static GetCurrentKBL() {
+    static GetCurrentKBL(hWnd) {
         DetectHiddenWindows True
-        WinId := WinGetID('A')
-
-        WinId := KBLTool.CheckUWPWinId(WinId)
-        threadId := DllCall(KBLTool.GetWindowThreadProcessId, "Ptr", WinId, "Uint", 0)
+        ; 这里如果判断了UWP会导致调整日文键盘状态失败，虽然不明白为什么
+        ; WinId := KBLTool.CheckUWPWinId(WinId)
+        threadId := DllCall(KBLTool.GetWindowThreadProcessId, "Ptr", hWnd, "Uint", 0)
         kbl := DllCall(KBLTool.GetKeyboardLayout, "Uint", threadId, "UInt")
+
+        imeWinId := KBLTool.GetIMEWinId(hWnd)
+        state := SendMessage(0x283, 0x001, 0, , "ahk_id " DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hWnd, "Uint"))
 
         DetectHiddenWindows false
 
-        return Format('0x{:08x}', kbl & 0x3FFF)
+        name := KBLTool.LangIdToName(Format('0x{:08x}', kbl & 0x3FFF))
+        return KeyboardLayout(name, state)
+        ; return Format('0x{:08x}', kbl & 0x3FFF)
     }
 
     static LangIdToName(langId) =>
         KBLTool.%"_" StrReplace(langId, "0x")%
 
 
-    static CheckUWPWinId(winId) {
+    static CheckUWPWinId(hWnd) {
         ; 如果是 UWP 则用另外的方法获取 ID
-        if WinGetProcessName(winId) == "ApplicationFrameHost.exe" {
+        if WinGetProcessName(hWnd) == "ApplicationFrameHost.exe" {
             childPID := ''
 
-            pid := WinGetPID(winId)
+            pid := WinGetPID(hWnd)
 
-            for c in WinGetControls(winId)
+            for c in WinGetControls(hWnd)
                 DllCall(KBLTool.GetWindowThreadProcessId, "Ptr", c, "UintP", childPID)
             until childPID != pid
 
-            DetectHiddenWindows true
-            winId := WinExist("ahk_pid" childPID)
+            ; DetectHiddenWindows true
+            hWnd := WinExist("ahk_pid" childPID)
         }
 
-        return winId
+        return hWnd
     }
 
     ; 设置键盘布局
-    static SetKBL(language, state := 0) {
+    static SetKBL(hWnd, language, state := 0) {
         try {
             code := KBLTool.KBLCodes[language]
         } catch Error as e {
@@ -96,26 +100,20 @@ class KBLTool {
             throw e
         }
 
-        imeWinId := KBLTool.GetIMEWinId()
-        winTitle := WinGetTitle(IMEWinId)
+        hWnd := KBLTool.GetIMEWinId(hWnd)
 
         ;TODO 考虑自动上屏如何实现
-        errorLever := SendMessage(0x50, , code, , imeWinId, , , , 1000)
+        errorLever := SendMessage(0x50, , code, , hWnd, , , , 1000)
 
         ; 设置 IME 的状态
         if (errorLever != "FAIL") {
-            Sleep(50)
-            errorLevel := SendMessage(0x283, 0x002, state, , imeWinId, , , , 1000)
-            errorLevel := SendMessage(0x283, 0x006, state, , imeWinId, , , , 1000)
+            Sleep(25)
+            errorLevel := SendMessage(0x283, 0x002, state, , hWnd, , , , 1000)
+            errorLevel := SendMessage(0x283, 0x006, state, , hWnd, , , , 1000)
         }
         return errorLever
     }
     ;TODO 指定要切换的 IME ，以便一个 KBL 中有不同的 IME 如 五笔与拼音
-
-    ; 1. 先去了解窗口组，然后判断一下窗口组是否能满足需求
-    ; 2. 否则另外记录每个窗口的id，以及切换序号，当切换时推进到下一个序号的KBL
-    ; 3. 激活新窗口时，自动切换到之前记录的序号（默认的序号从ini读取）
-    ; 4. 需要一个全局序号，当不使用窗口独立管理的时候，自动切换
 
     static _00000036 := "af"
     static _00000436 := "af-ZA"

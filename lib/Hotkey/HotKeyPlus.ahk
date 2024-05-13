@@ -1,4 +1,4 @@
-#Include ..\Util\Guid.ahk
+#Include ..\Setting\KBLSwitchSetting.ahk
 
 class HotKeyPlus {
     ; 创建一个包含长按/释放功能的热键
@@ -88,8 +88,7 @@ class HotKeyPlus {
         this.taskState := newState
 
         if (newState == "Successed") {
-            excute := this.callBack
-            excute()
+            this.callBack.Call(this.Key)
         }
 
     }
@@ -100,8 +99,8 @@ class HotKeyPlus {
         ; key的格式为 N个修饰符与一个主键结合，其中修饰符可能有<或者>标注
         Util.RegExMatch(key, "(<|>)?(\+|\^|\#|\!)", &matches, &groups)
         for e in groups {
-            prefix := e[1] != "" ? KBLSwitcherSetting.MarkToModifier[e[1]] : ""
-            modifier := prefix KBLSwitcherSetting.MarkToModifier[e[2]]
+            prefix := e[1] != "" ? KBLSwitchSetting.MarkToModifier[e[1]] : ""
+            modifier := prefix KBLSwitchSetting.MarkToModifier[e[2]]
             arr.Push(modifier)
         }
 

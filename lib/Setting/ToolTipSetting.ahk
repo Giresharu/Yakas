@@ -1,15 +1,14 @@
 #Requires AutoHotkey v2.0
-
 #Include ..\Util\Util.ahk
 
 class ToolTipSetting {
 
     __New(globalSetting, overridesSetting) {
-        this.Global := globalSetting
-        this.Overrides := overridesSetting
+        ToolTipSetting.Global := globalSetting
+        ToolTipSetting.Overrides := overridesSetting
     }
 
-    __Item[i] => this.override[i]
+    __Item[i] => ToolTipSetting.Overrides[i]
 
     static FromIni(value) {
 
