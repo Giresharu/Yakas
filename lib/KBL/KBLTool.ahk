@@ -45,51 +45,23 @@ class KBLTool {
         return kblCodes
     }
 
-    ; 从当前窗口获取 IME 窗口句柄
-    static GetIMEWinId(hWnd) {
-        hWnd := KBLTool.CheckUWPWinId(hWnd)
-        IMEWinId := DllCall(KBLTool.ImmGetDefaultIMEWnd, "Uint", hWnd, "Uint")
-        return IMEWinId
-    }
-
     static GetCurrentKBL(hWnd) {
-        DetectHiddenWindows True
-        ; 这里如果判断了UWP会导致调整日文键盘状态失败，虽然不明白为什么
-        ; WinId := KBLTool.CheckUWPWinId(WinId)
+        temp := A_DetectHiddenWindows
+        A_DetectHiddenWindows := true
+
         threadId := DllCall(KBLTool.GetWindowThreadProcessId, "Ptr", hWnd, "Uint", 0)
         kbl := DllCall(KBLTool.GetKeyboardLayout, "Uint", threadId, "UInt")
 
-        imeWinId := KBLTool.GetIMEWinId(hWnd)
+        ; hWnd := KBLTool.GetIMEWinId(hWnd)
         state := SendMessage(0x283, 0x001, 0, , "ahk_id " DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hWnd, "Uint"))
-
-        DetectHiddenWindows false
-
+        
+        A_DetectHiddenWindows := temp
         name := KBLTool.LangIdToName(Format('0x{:08x}', kbl & 0x3FFF))
         return KeyboardLayout(name, state)
-        ; return Format('0x{:08x}', kbl & 0x3FFF)
     }
 
     static LangIdToName(langId) =>
         KBLTool.%"_" StrReplace(langId, "0x")%
-
-
-    static CheckUWPWinId(hWnd) {
-        ; 如果是 UWP 则用另外的方法获取 ID
-        if WinGetProcessName(hWnd) == "ApplicationFrameHost.exe" {
-            childPID := ''
-
-            pid := WinGetPID(hWnd)
-
-            for c in WinGetControls(hWnd)
-                DllCall(KBLTool.GetWindowThreadProcessId, "Ptr", c, "UintP", childPID)
-            until childPID != pid
-
-            ; DetectHiddenWindows true
-            hWnd := WinExist("ahk_pid" childPID)
-        }
-
-        return hWnd
-    }
 
     ; 设置键盘布局
     static SetKBL(hWnd, language, state := 0) {
@@ -100,18 +72,18 @@ class KBLTool {
             throw e
         }
 
-        hWnd := KBLTool.GetIMEWinId(hWnd)
+        try {
+            ;TODO 考虑自动上屏如何实现
+            errorLever := SendMessage(0x50, , code, , hWnd, , , , 100)
 
-        ;TODO 考虑自动上屏如何实现
-        errorLever := SendMessage(0x50, , code, , hWnd, , , , 1000)
-
-        ; 设置 IME 的状态
-        if (errorLever != "FAIL") {
-            Sleep(25)
-            errorLevel := SendMessage(0x283, 0x002, state, , hWnd, , , , 1000)
-            errorLevel := SendMessage(0x283, 0x006, state, , hWnd, , , , 1000)
+            ; 设置 IME 的状态
+            if (errorLever != "FAIL") {
+                Sleep(10)
+                errorLevel := SendMessage(0x283, 0x002, state, , hWnd, , , , 100)
+                errorLevel := SendMessage(0x283, 0x006, state, , hWnd, , , , 100)
+            }
+            return errorLever
         }
-        return errorLever
     }
     ;TODO 指定要切换的 IME ，以便一个 KBL 中有不同的 IME 如 五笔与拼音
 

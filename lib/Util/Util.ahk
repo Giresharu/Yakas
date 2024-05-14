@@ -1,6 +1,29 @@
 #Requires AutoHotkey v2.0
 
 class Util {
+    static WinGetID(title := "A") {
+        hWnd := WinGetID(title)
+        return Util.FixUWPWinID(hWnd)
+    }
+
+    static FixUWPWinID(hWnd) {
+        if WinGetProcessName(hWnd) == "ApplicationFrameHost.exe" {
+            TrueWindow := 0
+            DllCall("EnumChildWindows", "ptr", hWnd, "ptr", CallbackCreate(EnumChildWindows, "F"), "uint", 0)
+            hWnd := TrueWindow
+        }
+
+        return hWnd
+
+        EnumChildWindows(hwnd) {
+            if WinGetProcessName(hwnd) != "ApplicationFrameHost.exe" {
+                TrueWindow := hwnd
+                return false
+            }
+            return true
+        }
+    }
+
     ; 从 ini 文件中读取指定 section 和 key 对应的值
     static INIRead(iniFile, section, key, defaultValue?) {
         str := IniRead(iniFile, section, key, defaultValue?)
@@ -8,6 +31,7 @@ class Util {
         str := Trim(str)  ; 移除字符串两侧的空格
         return str
     }
+
 
     ; 从 ini 文件中读取指定 section 下的所有键值对，并以回调函数处理值
     static INIReadForeach(iniFile, section, callBack?) {

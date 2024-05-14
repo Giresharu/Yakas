@@ -15,7 +15,7 @@
 #Include lib\KBL\KBLTool.ahk
 #Include lib\KBL\KBLManager.ahk
 #Include lib\Util\WinEvent.ahk
-
+; DetectHiddenWindows True
 
 iniFile := "setting.ini"
 languageCodeFile := "languageCode"

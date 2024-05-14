@@ -16,7 +16,7 @@ class KBLManager {
         KBLManager.GetProcessesState()
         KBLManager.RegisterHotkeys()
 
-        hWnd := WinGetID("A")
+        hWnd := UTIL.WinGetID("A")
         SetTimer(() => KBLManager.OnWinActived(hWnd), -1) ; 手动触发一次当前窗口，防止漏过
         WinEvent.Active((h, w, d) => KBLManager.OnWinActived(w))
     }
@@ -38,6 +38,7 @@ class KBLManager {
     }
 
     static OnWinActived(hWnd) {
+        hWnd := Util.FixUWPWinID(hWnd)
         if (!WinExist(hWnd))
             return
 
@@ -47,17 +48,16 @@ class KBLManager {
             ; 当同路径进程已经打开时，会获取路径为 key 的状态
             ; 否则，获取同名进程的状态
             ; 非进程独立键盘模式下，不要为未配置进程创建状态记录（状态记录仅用于获取默认键盘配置）
-            KBLManager.TryGetProcessState(path, name, &processState, !ProcessSetting.StandAlong)
+            KBLManager.TryGetProcessState(path, name, &processState, ProcessSetting.StandAlong)
             if (processState.AlwaysRecorveToDefault) {
                 processState.RecoverToDefualt()
             }
-            ; 只有进程独立键盘模式下，或者进程有总是恢复默认键盘的要求时，才设置键盘
-            if (ProcessSetting.StandAlong || processState.AlwaysRecorveToDefault) {
+            ; 进程有总是恢复默认键盘的要求时，才设置键盘
+            if (processState.AlwaysRecorveToDefault) {
                 KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State)
             }
             return
         }
-
         KBLManager.OnNewProcessDetected(path, name, hWnd)
     }
 
@@ -65,7 +65,7 @@ class KBLManager {
     static OnNewProcessDetected(path, name, hWnd) {
         ; 如果不是 ini 里预先配置的以名字作为 key 的进程，一定是以路径作为 key 的
         ; 非进程独立键盘模式下，不要为未配置进程创建状态记录，如果不存在记录，则使用全局配置
-        result := KBLManager.TryGetProcessState(path, name, &processState, !ProcessSetting.StandAlong)
+        result := KBLManager.TryGetProcessState(path, name, &processState, ProcessSetting.StandAlong)
         if (!result) {
             key := path
             kbl := KBLManager.GlobalState.CurrentLayout
@@ -128,7 +128,7 @@ class KBLManager {
     }
 
     static NextKBL(hotkey) {
-        hWnd := WinGetID("A")
+        hWnd := Util.WinGetID("A")
         hotkey := Trim(hotkey, '~')
         SwitchSetting := KBLSwitchSetting[hotkey]
         path := WinGetProcessPath(hWnd)
@@ -139,7 +139,15 @@ class KBLManager {
         if (result == 0)
             processState := KBLManager.GlobalState
 
-        index := processState.PrevioursSwitch == hotkey ? processState.PrevioursSwitchIndex : KBLManager.FindSimilarKBL(SwitchSetting.Layouts, hWnd)
+        if (processState.PrevioursSwitch == hotkey) {
+            index := processState.PrevioursSwitchIndex
+            expectedKbl := processState.CurrentLayout
+            kbl := KBLTool.GetCurrentKBL(hWnd)
+            if (expectedKbl.Name != kbl.Name || expectedKbl.State != kbl.State) {
+                index := KBLManager.FindSimilarKBL(SwitchSetting.Layouts, hWnd)
+            }
+        } else
+            index := KBLManager.FindSimilarKBL(SwitchSetting.Layouts, hWnd)
 
         kblCapcity := SwitchSetting.Layouts.Length
         index := Mod(index, kblCapcity) + 1
