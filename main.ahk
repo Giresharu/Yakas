@@ -10,6 +10,7 @@
 ; }
 
 #Include Lib\Setting\KBLSwitchSetting.ahk
+#Include lib\Setting\ProcessSetting.ahk
 #Include Lib\Hotkey\HotKeyPlus.ahk
 #Include lib\KBL\KBLTool.ahk
 #Include lib\KBL\KBLManager.ahk
@@ -25,6 +26,7 @@ Return
 
 Initialize() {
     KBLSwitchSetting.Initialize(iniFile)
+    ProcessSetting.Initialize(iniFile)
     KBLTool.Initialize()
     KBLManager.Initialize()
 }

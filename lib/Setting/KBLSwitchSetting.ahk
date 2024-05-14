@@ -29,7 +29,7 @@ class KBLSwitchSetting {
 
         condition := KBLSwitchSetting.ParseCondition(value, key, Util.INIRead(iniFile, "KBLSwitch." value, "condition", "long_release(500)"))
 
-        kbls := KBLSwitchSetting.ParseKBLayout(Util.INIRead(iniFile, "KBLSwitch." value, "layouts", "US: 0x0, 中文 (简体) - 美式: 0x1"))
+        kbls := KBLSwitchSetting.ParseKBLayout(Util.INIRead(iniFile, "KBLSwitch." value, "layouts", "en-US: 0, zh-CN: 1025"))
 
         return KBLSwitchSetting(value, key, condition, kbls)
     }
