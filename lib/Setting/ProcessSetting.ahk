@@ -25,7 +25,8 @@ class ProcessSetting {
         ProcessSetting.CleanOnProcessExit := Util.INIRead(iniFile, "GlobalProcessSetting", "CleanOnProcessExit", "true") == "true"
 
         ProcessSetting.DefualtKBL := Util.INIRead(iniFile, "GlobalProcessSetting", "DefualtKBL", "en-US: 0")
-        ProcessSetting.DefualtKBL := StrSplit(ProcessSetting.DefualtKBL, ":")
+        ProcessSetting.DefualtKBL := StrSplit(ProcessSetting.DefualtKBL, ":", " ")
+
         ProcessSetting.DefualtKBL := KeyboardLayout(ProcessSetting.DefualtKBL[1], ProcessSetting.DefualtKBL[2])
 
         arr := Util.INIReadForeach(iniFile, "ProcessSetting", ProcessSetting.FromINISection)
@@ -40,7 +41,7 @@ class ProcessSetting {
         value := Util.StrToArray(value, ",")
 
         processName := value[1]
-        defaultKBL := StrSplit(value[2], ":")
+        defaultKBL := StrSplit(value[2], ":", " ")
         defaultKBL := KeyboardLayout(defaultKBL[1], defaultKBL[2])
         alwaysRecorveToDefault := value[3] == "true"
         return ProcessSetting(processName, defaultKBL, alwaysRecorveToDefault)
