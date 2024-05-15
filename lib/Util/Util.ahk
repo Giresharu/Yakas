@@ -6,10 +6,18 @@ class Util {
         return Util.FixUWPWinID(hWnd)
     }
 
-    static FixUWPWinID(hWnd) {
+    static FixUWPWinID(hWnd, timeout := 5000) {
         if WinGetProcessName(hWnd) == "ApplicationFrameHost.exe" {
             TrueWindow := 0
-            DllCall("EnumChildWindows", "ptr", hWnd, "ptr", CallbackCreate(EnumChildWindows, "F"), "uint", 0)
+            ; 因为加载速度的原因，ApplicationFrameHost 加载出来的时候，它的子窗口还没有完全加载出来，所以这里需要循环等待子窗口加载完成
+            startTime := A_TickCount
+            loop {
+                DllCall("EnumChildWindows", "ptr", hWnd, "ptr", CallbackCreate(EnumChildWindows, "F"), "uint", 0)
+                if TrueWindow != 0
+                    break
+                if A_TickCount - startTime > timeout
+                    break
+            }
             hWnd := TrueWindow
         }
 
