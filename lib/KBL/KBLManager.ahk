@@ -7,13 +7,13 @@
 #Include ..\Setting\KBLSwitchSetting.ahk
 #Include ..\Setting\ProcessSetting.ahk
 
+;TODO 解决任务栏切换输入法导致任务栏浮动的问题
 class KBLManager {
     static runningProcess := Map()
     static ProcessStates := Map()
-    ; static GlobalState := ""
 
     static Initialize() {
-        KBLManager.GetProcessesState()
+        KBLManager.InitProcessesState()
         KBLManager.RegisterHotkeys()
 
         hWnd := UTIL.WinGetID("A")
@@ -30,10 +30,15 @@ class KBLManager {
         }
     }
 
-    static GetProcessesState() {
+    static InitProcessesState() {
         KBLManager.GlobalState := ProcessState("Global", ProcessSetting.DefualtKBL.Name, ProcessSetting.DefualtKBL.State, false)
         for i, p in ProcessSetting.ProcessSettings {
-            KBLManager.ProcessStates[p.Name] := ProcessState(p.Name, p.DefaultKBL.Name, p.DefaultKBL.State, p.AlwaysRecorveToDefault)
+            state := KBLManager.ProcessStates[p.Title] := ProcessState(p.Title, p.DefaultKBL.Name, p.DefaultKBL.State, p.AlwaysRecorveToDefault)
+            if (p.WindowSettings != 0) {
+                for j, w in p.WindowSettings {
+                    state.AddWindow(ProcessState(w.Title, w.DefaultKBL.Name, w.DefaultKBL.State, w.AlwaysRecorveToDefault))
+                }
+            }
         }
     }
 
@@ -42,18 +47,35 @@ class KBLManager {
         if (!WinExist(hWnd))
             return
 
+        winTitle := WinGetTitle(hWnd)
+        ; TODO 单独用一个变量记录上一个窗口，当点击任务栏时快切换任务栏的输入法
+        ; TODO 不用了，改用AHK图标来代替输入法图标，防止任务栏乱动
         path := WinGetProcessPath(hWnd)
         name := WinGetProcessName(hWnd)
-        if (KBLManager.runningProcess.Has(path) || KBLManager.runningProcess.Has(name)) {
+
+        result := false
+        regex := ""
+
+        if (KBLManager.runningProcess.Has(path)) {
+            result := KBLManager.runningProcess[path].WindowsMatchedRegEx.Has(winTitle)
+            regex := result ? KBLManager.runningProcess[path].WindowsMatchedRegEx[winTitle] : ""
+        } else if (KBLManager.runningProcess.Has(name)) {
+            result := KBLManager.runningProcess[name].WindowsMatchedRegEx.Has(winTitle)
+            regex := result ? KBLManager.runningProcess[name].WindowsMatchedRegEx[winTitle] : ""
+        }
+
+        if (result) {
             ; 当同路径进程已经打开时，会获取路径为 key 的状态
             ; 否则，获取同名进程的状态
             ; 非进程独立键盘模式下，不要为未配置进程创建状态记录（状态记录仅用于获取默认键盘配置）
             KBLManager.TryGetProcessState(path, name, &processState, ProcessSetting.StandAlong)
+            KBLManager.TryGetWindowState(processState, regex, &processState)
+
             if (processState.AlwaysRecorveToDefault) {
                 processState.RecoverToDefualt()
             }
-            ; 进程有总是恢复默认键盘的要求时，才设置键盘
-            if (processState.AlwaysRecorveToDefault) {
+
+            if (ProcessSetting.StandAlong || processState.AlwaysRecorveToDefault) {
                 KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State)
             }
             return
@@ -66,20 +88,23 @@ class KBLManager {
         ; 如果不是 ini 里预先配置的以名字作为 key 的进程，一定是以路径作为 key 的
         ; 非进程独立键盘模式下，不要为未配置进程创建状态记录，如果不存在记录，则使用全局配置
         result := KBLManager.TryGetProcessState(path, name, &processState, ProcessSetting.StandAlong)
+        regex := ""
         if (!result) {
             key := path
             kbl := KBLManager.GlobalState.CurrentLayout
         } else {
             key := result == 1 ? path : name
+            KBLManager.TryGetWindowState(processState, WinGetTitle(hWnd), &processState, &regex)
             kbl := processState.CurrentLayout
         }
 
-        KBLManager.runningProcess[key] := WinGetPID(hWnd)
+        if (!KBLManager.runningProcess.Has(key))
+            KBLManager.runningProcess[key] := RunningProcessInfo(WinGetPID(hWnd))
+        KBLManager.runningProcess[key].AddRegEx(WinGetTitle(hWnd), regex)
+
         KBLTool.SetKBL(hWnd, kbl.Name, kbl.State)
-
-        ProcessWaitClose(KBLManager.runningProcess[key])
+        ProcessWaitClose(KBLManager.runningProcess[key].PID)
         KBLManager.OnProcessExit(key)
-
     }
 
     static OnProcessExit(key) {
@@ -107,7 +132,7 @@ class KBLManager {
         KBLManager.ProcessStates.Delete(key)
     }
 
-    static TryGetProcessState(key1, key2 := "", &refProcessState := "", needCreate := true) {
+    static TryGetProcessState(key1, key2 := "", &refProcessState?, needCreate := true) {
         ; 如果有 key1 优先找 key1 ，否则找 key2 ，都没有则以 key1 新建数据
         if (KBLManager.ProcessStates.Has(key1)) {
             key := key1
@@ -125,6 +150,26 @@ class KBLManager {
 
         refProcessState := KBLManager.ProcessStates[key]
         return result
+    }
+
+    static TryGetWindowState(processState, title, &windowState?, &RegExPattern?) {
+        if (title == "" || processState.WindowStates == 0)
+            return 0
+
+        if (processState.WindowStates.Has(title)) {
+            windowState := processState.WindowStates[title]
+            RegExPattern := title
+            return 1
+        }
+
+        for i, w in processState.WindowStates {
+            if (RegExMatch(title, w.Title)) {
+                windowState := w
+                RegExPattern := w.Title
+                return 1
+            }
+        }
+        return 0
     }
 
     static NextKBL(hotkey) {
@@ -174,4 +219,18 @@ class KBLManager {
         }
         return mostSimilar
     }
+}
+
+class RunningProcessInfo {
+    PID := 0
+    WindowsMatchedRegEx := Map()
+
+    __New(pid) {
+        this.PID := pid
+    }
+
+    AddRegEx(title, regex) {
+        this.WindowsMatchedRegEx[title] := regex
+    }
+
 }

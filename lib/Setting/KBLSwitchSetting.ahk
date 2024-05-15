@@ -23,22 +23,20 @@ class KBLSwitchSetting {
     }
 
     ; 从 ini 文件中读取设置并返回 KBLSwitchSetting 对象
-    static FromINISection(iniFile, value) {
+    static FromINISection(iniFile, value, dic, _) {
 
         key := Util.INIRead(iniFile, "KBLSwitch." value, "key", "LShift")
-
         condition := KBLSwitchSetting.ParseCondition(value, key, Util.INIRead(iniFile, "KBLSwitch." value, "condition", "long_release(500)"))
-
         kbls := KBLSwitchSetting.ParseKBLayout(Util.INIRead(iniFile, "KBLSwitch." value, "layouts", "en-US: 0, zh-CN: 1025"))
 
-        return KBLSwitchSetting(value, key, condition, kbls)
+        dic[key] := KBLSwitchSetting(value, key, condition, kbls)
     }
 
     static SplitKeys(key) {
         arr := []
 
         ; key的格式为 N个修饰符与一个主键结合，其中修饰符可能有<或者>标注
-        Util.RegExMatch(key, "(<|>)?(\+|\^|\#|\!)", &matches, &groups)
+        Util.RegExMatchAll(key, "(<|>)?(\+|\^|\#|\!)", &matches, &groups)
         for e in groups {
             prefix := e[1] != "" ? KBLSwitchSetting.MarkToModifier[e[1]] : ""
             modifier := prefix KBLSwitchSetting.MarkToModifier[e[2]]
@@ -86,12 +84,7 @@ class KBLSwitchSetting {
     ; 从 ini 文件中读取所有键值对并返回 Map 对象
     static FromINI(iniFile) {
         ; 从 Ini 文件中读取所有键值对并根据 FromIni 转换为 KBLSwitchSetting 对象
-        arr := Util.INIReadForeach(iniFile, "KBLSwitch", KBLSwitchSetting.FromINISection)
-        dic := Map()
-        for i, e in arr {
-            dic[e.Key] := e
-        }
-        return dic
+        return Util.INIReadForeach(iniFile, "KBLSwitch", KBLSwitchSetting.FromINISection)
     }
 
 

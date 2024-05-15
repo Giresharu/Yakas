@@ -52,7 +52,7 @@ class Util {
             value := keyValue.Length > 1 ? keyValue[2] : ""  ; 如果有值则为键值中的第二个元素，否则为空字符串
 
             if (callBack)
-                dic[key] := callBack(0, iniFile, value)  ; 若有回调函数则处理值并存储
+                callBack(0, iniFile, value, dic, key)  ; 若有回调函数则处理值并存储
             ; 我是不知道为什么明明两个形参的回调来要写成3个参数，写2个就报错。总是就这样写吧
             else
                 dic[key] := value  ; 没有回调函数则直接存储值
@@ -84,7 +84,7 @@ class Util {
     }
 
     ; 正则表达式匹配，返回所有匹配以及每个匹配下的捕获组
-    static RegExMatch(str, pattern, &matches?, &groups?, startPos := 1) {
+    static RegExMatchAll(str, pattern, &matches?, &groups?, startPos := 1) {
         matches := []
         groups := []
 

@@ -1,6 +1,8 @@
 #Include KeyboardLayout.ahk
 
 class ProcessState {
+    WindowStates := 0
+
     __New(title, defualtKBL, defualtState, alwaysRecorveToDefault) {
         this.Title := title
         this.DefualtLayout := KeyboardLayout(defualtKBL, defualtState)
@@ -16,9 +18,16 @@ class ProcessState {
         this.CurrentLayout.Set(name, state)
     }
 
+    AddWindow(state){
+        if (this.WindowStates == 0)
+            this.WindowStates := Map()
+        this.WindowStates[state.Title] := state
+    }
+
     RecoverToDefualt(){
         this.CurrentLayout := this.DefualtLayout.Clone()
         this.PrevioursSwitch := ""
         this.PrevioursSwitchIndex := 0
+
     }
 }

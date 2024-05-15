@@ -7,14 +7,15 @@ class ProcessSetting {
     static CleanOnProcessExit := true
     static DefualtKBL := "en-US: 0"
     static ProcessSettings := Map()
+    WindowSettings := 0
 
-    __New(name, defaultKBL, alwaysRecorveToDefault) {
-        this.Name := name
+    __New(title, defaultKBL, alwaysRecorveToDefault) {
+        this.Title := title
         this.DefaultKBL := defaultKBL
         this.AlwaysRecorveToDefault := alwaysRecorveToDefault
     }
 
-    __Item[i] => ProcessSetting.ProcessSettings[i]
+    static __Item[key] => ProcessSetting.ProcessSettings[key]
 
     static Initialize(iniFile) {
         ProcessSetting.ProcessSettings := ProcessSetting.FromINI(iniFile)
@@ -29,22 +30,46 @@ class ProcessSetting {
 
         ProcessSetting.DefualtKBL := KeyboardLayout(ProcessSetting.DefualtKBL[1], ProcessSetting.DefualtKBL[2])
 
-        arr := Util.INIReadForeach(iniFile, "ProcessSetting", ProcessSetting.FromINISection)
-        dic := Map()
-        for i, e in arr {
-            dic[e.Name] := e
-        }
-        return dic
+        return Util.INIReadForeach(iniFile, "ProcessSetting", ProcessSetting.FromINISection)
     }
 
-    static FromINISection(iniFile, value) {
+    static FromINISection(iniFile, value, dic, _) {
         value := Util.StrToArray(value, ",")
 
-        processName := value[1]
-        defaultKBL := StrSplit(value[2], ":", " ")
+        name := Trim(value[1], " ")
+
+        defaultKBL := StrSplit(value[-2], ":", " ")
         defaultKBL := KeyboardLayout(defaultKBL[1], defaultKBL[2])
-        alwaysRecorveToDefault := value[3] == "true"
-        return ProcessSetting(processName, defaultKBL, alwaysRecorveToDefault)
+        alwaysRecorveToDefault := value[-1] == "true"
+
+        if (value.Length > 3) {
+            ;要考虑还没有创建的情况，需要自动创建
+            key := name
+            name := Trim(value[2], " ")
+            dic := ProcessSetting.FindSettingDic(dic, key, name)
+        }
+
+        if (dic.Has(name)) {
+            dic[name].DefaultKBL := defaultKBL
+            dic[name].AlwaysRecorveToDefault := alwaysRecorveToDefault
+        } else
+            dic[name] := ProcessSetting(name, defaultKBL, alwaysRecorveToDefault)
+    }
+
+    static FindSettingDic(dic, key, name) {
+        if (key != "") {
+            if (!dic.Has(key))
+                dic[key] := ProcessSetting(key, ProcessSetting.DefualtKBL, false)
+            dic := dic[key]
+        }
+
+        name := Trim(name, " ")
+
+        if (name != "") {
+            dic := dic.WindowSettings := (dic.WindowSettings == 0 ? Map() : dic.WindowSettings)
+        }
+
+        return dic
     }
 
 }

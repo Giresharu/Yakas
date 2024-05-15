@@ -97,7 +97,7 @@ class HotKeyPlus {
         arr := []
 
         ; key的格式为 N个修饰符与一个主键结合，其中修饰符可能有<或者>标注
-        Util.RegExMatch(key, "(<|>)?(\+|\^|\#|\!)", &matches, &groups)
+        Util.RegExMatchAll(key, "(<|>)?(\+|\^|\#|\!)", &matches, &groups)
         for e in groups {
             prefix := e[1] != "" ? KBLSwitchSetting.MarkToModifier[e[1]] : ""
             modifier := prefix KBLSwitchSetting.MarkToModifier[e[2]]
