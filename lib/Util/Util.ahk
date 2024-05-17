@@ -17,6 +17,7 @@ class Util {
                     break
                 if A_TickCount - startTime > timeout
                     break
+                Sleep(1000 / 24)
             }
             hWnd := TrueWindow
         }

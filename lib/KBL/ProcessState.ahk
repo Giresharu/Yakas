@@ -10,6 +10,7 @@ class ProcessState {
         this.PrevioursSwitch := ""
         this.PrevioursSwitchIndex := 0
         this.alwaysRecorveToDefault := alwaysRecorveToDefault
+        this.CapsLockState := 0
     }
 
     Update(key, SwitchIndex, name, state) {

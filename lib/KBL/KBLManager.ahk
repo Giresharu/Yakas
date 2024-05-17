@@ -7,7 +7,6 @@
 #Include ..\Setting\KBLSwitchSetting.ahk
 #Include ..\Setting\ProcessSetting.ahk
 
-;TODO 解决任务栏切换输入法导致任务栏浮动的问题
 class KBLManager {
     static runningProcess := Map()
     static ProcessStates := Map()
@@ -16,7 +15,7 @@ class KBLManager {
         KBLManager.InitProcessesState()
         KBLManager.RegisterHotkeys()
 
-        hWnd := UTIL.WinGetID("A")
+        hWnd := WinGetID("A")
         SetTimer(() => KBLManager.OnWinActived(hWnd), -1) ; 手动触发一次当前窗口，防止漏过
         WinEvent.Active((h, w, d) => KBLManager.OnWinActived(w))
     }
@@ -28,6 +27,43 @@ class KBLManager {
 
             HotkeyPlus("~" key, (k) => KBLManager.NextKBL(k), condition.NeedRelease, condition.HoldTime, condition.ReverseHold)
         }
+        HotKey("~CapsLock", (_) => KBLManager.OnCapsLockToggled(1))
+        Hotkey("~CapsLock Up", (_) => KBLManager.OnCapsLockToggled(0))
+    }
+
+    static CapsLockHolding := 0
+    static OnCapsLockToggled(on) {
+        if (on && KBLManager.CapsLockHolding)
+            return
+        KBLManager.CapsLockHolding := on
+
+        Sleep(1000 / 24)
+
+        hWnd := WinGetID("A")
+        if (!KBLManager.GetWinProperties(hWnd, &winTitle, &path, &name))
+            return
+
+        if (!ProcessSetting.StandAlong)
+            processState := KBLManager.GlobalState
+        else
+            processState := KBLManager.FindProcessStateIfRunningProcess(hWnd, winTitle, path, name)
+
+        if (processState) {
+            state := GetKeyState("CapsLock", "T")
+            if (processState.CapsLockState != state) {
+                processState.CapsLockState := state
+                ;TODO 显示 ToolTip
+            }
+        }
+
+        ; 防止因为意外 Up 的触发被卡没了，隔半秒就取消按住的状态
+        if (on) {
+            SetTimer(() => KBLManager.CapsLockHolding = 0, -500)
+        }
+    }
+
+    static UpdateCapsLockState(processState, state) {
+
     }
 
     static InitProcessesState() {
@@ -42,18 +78,8 @@ class KBLManager {
         }
     }
 
-    static OnWinActived(hWnd) {
-        hWnd := Util.FixUWPWinID(hWnd)
-        if (!WinExist(hWnd))
-            return
-
-        winTitle := WinGetTitle(hWnd)
-        ; TODO 单独用一个变量记录上一个窗口，当点击任务栏时快切换任务栏的输入法
-        ; TODO 不用了，改用AHK图标来代替输入法图标，防止任务栏乱动
-        path := WinGetProcessPath(hWnd)
-        name := WinGetProcessName(hWnd)
-
-        result := false
+    static FindProcessStateIfRunningProcess(hWnd, winTitle, path, name, &regex?) {
+        result := 0
         regex := ""
 
         if (KBLManager.runningProcess.Has(path)) {
@@ -68,16 +94,54 @@ class KBLManager {
             ; 当同路径进程已经打开时，会获取路径为 key 的状态
             ; 否则，获取同名进程的状态
             ; 非进程独立键盘模式下，不要为未配置进程创建状态记录（状态记录仅用于获取默认键盘配置）
-            KBLManager.TryGetProcessState(path, name, &processState, ProcessSetting.StandAlong)
-            KBLManager.TryGetWindowState(processState, regex, &processState)
+            if (KBLManager.TryGetProcessState(path, name, &processState, ProcessSetting.StandAlong) != 0) {
+                KBLManager.TryGetWindowState(processState, regex, &processState)
+                result := processState
+            }
+        }
 
-            if (processState.AlwaysRecorveToDefault) {
+        return result
+    }
+
+    static GetWinProperties(hWnd, &winTitle?, &processPath?, &processName?) {
+        if (!WinExist(hWnd))
+            return 0
+        winTitle := WinGetTitle(hWnd)
+        processName := WinGetProcessName(hWnd)
+        processPath := WinGetProcessPath(hWnd)
+
+        return hWnd
+    }
+
+    static OnWinActived(hWnd) {
+        hWnd := Util.FixUWPWinID(hWnd)
+        if (!KBLManager.GetWinProperties(hWnd, &winTitle, &path, &name))
+            return
+
+        processState := KBLManager.FindProcessStateIfRunningProcess(hWnd, winTitle, path, name)
+        if (processState) {
+            ;TODO 这里也是 如果是同一个 processState 不应该触发，看来需要记录上一个 processState 来做比较了
+            if (processState != 1 && processState.AlwaysRecorveToDefault) {
                 processState.RecoverToDefualt()
+                KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State)
+                ; TODO if (CleanOnRecovery)
+                SetCapsLockState("Off")
+                ;TODO 显示 ToolTip
+                return
             }
 
-            if (ProcessSetting.StandAlong || processState.AlwaysRecorveToDefault) {
-                KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State)
-            }
+            if (!ProcessSetting.StandAlong)
+                processState := KBLManager.GlobalState
+
+            ; TODO 提取到新方法，并实现如果输入法相同则避免切换？
+            ; TODO 也许不应该避免切换，那样的行为是不一致的
+            ; TODO 如果是同一个 processState 则避免？？
+
+            KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State)
+            SetCapsLockState(processState.CapsLockState ? "On" : "Off")
+
+            ;TODO 显示 ToolTip
+
             return
         }
         KBLManager.OnNewProcessDetected(path, name, hWnd)
@@ -91,18 +155,21 @@ class KBLManager {
         regex := ""
         if (!result) {
             key := path
-            kbl := KBLManager.GlobalState.CurrentLayout
+            processState := KBLManager.GlobalState
         } else {
             key := result == 1 ? path : name
             KBLManager.TryGetWindowState(processState, WinGetTitle(hWnd), &processState, &regex)
-            kbl := processState.CurrentLayout
         }
+        kbl := processState.CurrentLayout
 
         if (!KBLManager.runningProcess.Has(key))
             KBLManager.runningProcess[key] := RunningProcessInfo(WinGetPID(hWnd))
         KBLManager.runningProcess[key].AddRegEx(WinGetTitle(hWnd), regex)
 
         KBLTool.SetKBL(hWnd, kbl.Name, kbl.State)
+        SetCapsLockState(processState.CapsLockState ? "On" : "Off")
+        ;TODO 显示 ToolTip
+
         ProcessWaitClose(KBLManager.runningProcess[key].PID)
         KBLManager.OnProcessExit(key)
     }
@@ -180,8 +247,8 @@ class KBLManager {
         name := WinGetProcessName(hWnd)
 
         ; 非独立进程键盘模式下使用全局状态
-        result := KBLManager.TryGetProcessState(name, path, &processState, !ProcessSetting.StandAlong)
-        if (result == 0)
+        result := KBLManager.TryGetProcessState(name, path, &processState, false)
+        if (result == 0 || !ProcessSetting.StandAlong)
             processState := KBLManager.GlobalState
 
         if (processState.PrevioursSwitch == hotkey) {
@@ -201,6 +268,10 @@ class KBLManager {
 
         processState.Update(hotkey, index, kbl, state)
         KBLTool.SetKBL(hWnd, kbl, state)
+        ;TODO if (CleanOnSwitch)
+        processState.CapsLockState := 0
+        SetCapsLockState("Off")
+        ;TODO 显示 ToolTip
     }
 
     static FindSimilarKBL(layouts, hWnd) {

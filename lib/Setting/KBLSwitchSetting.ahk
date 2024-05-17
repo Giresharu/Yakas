@@ -20,16 +20,20 @@ class KBLSwitchSetting {
 
     static Initialize(iniFile) {
         KBLSwitchSetting.KBLSwitchSettings := KBLSwitchSetting.FromINI(iniFile)
+        Util.INIReadForeach(iniFile, "AutoSendString", KBLSwitchSetting.AddToGroup)
     }
 
     ; 从 ini 文件中读取设置并返回 KBLSwitchSetting 对象
     static FromINISection(iniFile, value, dic, _) {
-
         key := Util.INIRead(iniFile, "KBLSwitch." value, "key", "LShift")
         condition := KBLSwitchSetting.ParseCondition(value, key, Util.INIRead(iniFile, "KBLSwitch." value, "condition", "long_release(500)"))
         kbls := KBLSwitchSetting.ParseKBLayout(Util.INIRead(iniFile, "KBLSwitch." value, "layouts", "en-US: 0, zh-CN: 1025"))
 
         dic[key] := KBLSwitchSetting(value, key, condition, kbls)
+    }
+
+    static AddToGroup(iniFile, value, dic, _) {
+        GroupAdd "AutoSendString", Trim(value, " ")
     }
 
     static SplitKeys(key) {
