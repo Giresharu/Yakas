@@ -10,6 +10,7 @@
 class KBLManager {
     static runningProcess := Map()
     static ProcessStates := Map()
+    static PreviousState := ""
 
     static Initialize() {
         KBLManager.InitProcessesState()
@@ -78,6 +79,7 @@ class KBLManager {
         }
     }
 
+    ; 0: 首次发现的进程 1: 正在运行进程，但是没有记录状态
     static FindProcessStateIfRunningProcess(hWnd, winTitle, path, name, &regex?) {
         result := 0
         regex := ""
@@ -120,30 +122,28 @@ class KBLManager {
 
         processState := KBLManager.FindProcessStateIfRunningProcess(hWnd, winTitle, path, name)
         if (processState) {
-            ;TODO 这里也是 如果是同一个 processState 不应该触发，看来需要记录上一个 processState 来做比较了
+            ; 如果 processState 没有变化，则不做任何处理
+            if (processState == KBLManager.PreviousState)
+                return
+            ; 当 processState 存在且 AlwaysRecorveToDefault 时，自动恢复到默认状态，并解除大写锁定
             if (processState != 1 && processState.AlwaysRecorveToDefault) {
                 processState.RecoverToDefualt()
                 KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State)
                 ; TODO if (CleanOnRecovery)
                 SetCapsLockState("Off")
                 ;TODO 显示 ToolTip
-                return
+            } else {
+                ; 否则恢复到记录的状态
+                processState := ProcessSetting.StandAlong ? processState : KBLManager.GlobalState
+
+                KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State)
+                SetCapsLockState(processState.CapsLockState ? "On" : "Off")
+                ;TODO 显示 ToolTip
             }
-
-            if (!ProcessSetting.StandAlong)
-                processState := KBLManager.GlobalState
-
-            ; TODO 提取到新方法，并实现如果输入法相同则避免切换？
-            ; TODO 也许不应该避免切换，那样的行为是不一致的
-            ; TODO 如果是同一个 processState 则避免？？
-
-            KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State)
-            SetCapsLockState(processState.CapsLockState ? "On" : "Off")
-
-            ;TODO 显示 ToolTip
-
+            KBLManager.PreviousState := processState
             return
         }
+
         KBLManager.OnNewProcessDetected(path, name, hWnd)
     }
 
@@ -169,6 +169,8 @@ class KBLManager {
         KBLTool.SetKBL(hWnd, kbl.Name, kbl.State)
         SetCapsLockState(processState.CapsLockState ? "On" : "Off")
         ;TODO 显示 ToolTip
+
+        KBLManager.PreviousState := processState
 
         ProcessWaitClose(KBLManager.runningProcess[key].PID)
         KBLManager.OnProcessExit(key)
