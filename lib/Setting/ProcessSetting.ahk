@@ -6,6 +6,11 @@ class ProcessSetting {
     static StandAlong := true
     static CleanOnProcessExit := true
     static DefualtKBL := "en-US: 0"
+    static RemenberCaps := true
+    static CleanCapsOnSwitched := true
+    static CleanCapsOnProcessChanged := true
+    static CleanCapsOnRecovered := true
+
     static ProcessSettings := Map()
     WindowSettings := 0
 
@@ -29,6 +34,11 @@ class ProcessSetting {
         ProcessSetting.DefualtKBL := StrSplit(ProcessSetting.DefualtKBL, ":", " ")
 
         ProcessSetting.DefualtKBL := KeyboardLayout(ProcessSetting.DefualtKBL[1], ProcessSetting.DefualtKBL[2])
+
+        ProcessSetting.RemenberCaps := Util.INIRead(iniFile, "GlobalProcessSetting", "RemenberCaps", "true") == "true"
+        ProcessSetting.CleanCapsOnSwitched := Util.INIRead(iniFile, "GlobalProcessSetting", "CleanCapsOnSwitched", "true") == "true"
+        ProcessSetting.CleanCapsOnProcessChanged := Util.INIRead(iniFile, "GlobalProcessSetting", "CleanCapsOnProcessChanged", "true") == "true"
+        ProcessSetting.CleanCapsOnRecovered := Util.INIRead(iniFile, "GlobalProcessSetting", "CleanCapsOnRecovered", "true") == "true"
 
         return Util.INIReadForeach(iniFile, "ProcessSetting", ProcessSetting.FromINISection)
     }

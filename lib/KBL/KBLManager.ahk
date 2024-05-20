@@ -28,39 +28,59 @@ class KBLManager {
 
             HotkeyPlus("~" key, (k) => KBLManager.NextKBL(k), condition.NeedRelease, condition.HoldTime, condition.ReverseHold)
         }
-        HotKey("~CapsLock", (_) => KBLManager.OnCapsLockToggled(1))
-        Hotkey("~CapsLock Up", (_) => KBLManager.OnCapsLockToggled(0))
+        HotKey("~CapsLock", (_) => KBLManager.OnCapsLockToggled())
     }
 
     static CapsLockHolding := 0
-    static OnCapsLockToggled(on) {
-        if (on && KBLManager.CapsLockHolding)
+    static OnCapsLockToggled() {
+        if (!ProcessSetting.RemenberCaps || KBLManager.CapsLockHolding)
             return
-        KBLManager.CapsLockHolding := on
 
-        Sleep(1000 / 24)
+        hWnd := Util.WinGetID("A")
+        ; Sleep(50)
 
-        hWnd := WinGetID("A")
         if (!KBLManager.GetWinProperties(hWnd, &winTitle, &path, &name))
             return
 
-        if (!ProcessSetting.StandAlong)
-            processState := KBLManager.GlobalState
-        else
-            processState := KBLManager.FindProcessStateIfRunningProcess(hWnd, winTitle, path, name)
+        ; 不能先获取 Global 而是先尝试获取进程
+        result := KBLManager.FindProcessStateIfRunningProcess(hWnd, winTitle, path, name, &processState)
 
-        if (processState) {
+        condition := result && !processState.alwaysRecorveToDefault || !result
+        condition := condition && !ProcessSetting.StandAlong
+
+        if (condition) {
+            processState := KBLManager.GlobalState
+        } else if (!result) {
+            mode := ProcessSetting.StandAlong ? "StandAlong" : "Global"
+            throw WinGetTitle(hWnd) " processState's result is number: " result " in " mode " mode!"
+        }
+
+        ; TODO 可能会有 BUG，暂时不知道会不会有 processState.CapsLockState 与实际不符的情况，所以预防万一做一个超时检测
+        startTick := A_TickCount
+        while (true) {
             state := GetKeyState("CapsLock", "T")
-            if (processState.CapsLockState != state) {
-                processState.CapsLockState := state
-                ;TODO 显示 ToolTip
+            if state != processState.CapsLockState
+                break
+            Sleep(1000 / 60)
+            if (A_TickCount - startTick > 500)
+                throw "Check CapsLock state timeout!"
+        }
+
+        if (processState.CapsLockState != state) {
+            processState.CapsLockState := state
+            ;TODO 显示 ToolTip
+            ToolTip(WinGetTitle(hWnd) " " (state ? "On" : "Off"))
+        }
+
+        ; 循环检测释放，允许下次按下 CapsLock 生效
+        SetTimer(WaitForRelease, 1000 / 24)
+        WaitForRelease() {
+            if (!GetKeyState("CapsLock", "P")) {
+                SetTimer(WaitForRelease, 0)
+                KBLManager.CapsLockHolding := 0
             }
         }
 
-        ; 防止因为意外 Up 的触发被卡没了，隔半秒就取消按住的状态
-        if (on) {
-            SetTimer(() => KBLManager.CapsLockHolding = 0, -500)
-        }
     }
 
     static UpdateCapsLockState(processState, state) {
@@ -79,66 +99,39 @@ class KBLManager {
         }
     }
 
-    ; 0: 首次发现的进程 1: 正在运行进程，但是没有记录状态
-    static FindProcessStateIfRunningProcess(hWnd, winTitle, path, name, &regex?) {
-        result := 0
-        regex := ""
-
-        if (KBLManager.runningProcess.Has(path)) {
-            result := KBLManager.runningProcess[path].WindowsMatchedRegEx.Has(winTitle)
-            regex := result ? KBLManager.runningProcess[path].WindowsMatchedRegEx[winTitle] : ""
-        } else if (KBLManager.runningProcess.Has(name)) {
-            result := KBLManager.runningProcess[name].WindowsMatchedRegEx.Has(winTitle)
-            regex := result ? KBLManager.runningProcess[name].WindowsMatchedRegEx[winTitle] : ""
-        }
-
-        if (result) {
-            ; 当同路径进程已经打开时，会获取路径为 key 的状态
-            ; 否则，获取同名进程的状态
-            ; 非进程独立键盘模式下，不要为未配置进程创建状态记录（状态记录仅用于获取默认键盘配置）
-            if (KBLManager.TryGetProcessState(path, name, &processState, ProcessSetting.StandAlong) != 0) {
-                KBLManager.TryGetWindowState(processState, regex, &processState)
-                result := processState
-            }
-        }
-
-        return result
-    }
-
-    static GetWinProperties(hWnd, &winTitle?, &processPath?, &processName?) {
-        if (!WinExist(hWnd))
-            return 0
-        winTitle := WinGetTitle(hWnd)
-        processName := WinGetProcessName(hWnd)
-        processPath := WinGetProcessPath(hWnd)
-
-        return hWnd
-    }
-
     static OnWinActived(hWnd) {
         hWnd := Util.FixUWPWinID(hWnd)
         if (!KBLManager.GetWinProperties(hWnd, &winTitle, &path, &name))
             return
 
-        processState := KBLManager.FindProcessStateIfRunningProcess(hWnd, winTitle, path, name)
-        if (processState) {
+        result := KBLManager.FindProcessStateIfRunningProcess(hWnd, winTitle, path, name, &processState)
+        if (result) {
             ; 如果 processState 没有变化，则不做任何处理
             if (processState == KBLManager.PreviousState)
                 return
+
             ; 当 processState 存在且 AlwaysRecorveToDefault 时，自动恢复到默认状态，并解除大写锁定
-            if (processState != 1 && processState.AlwaysRecorveToDefault) {
+            if (result != 1 && processState.AlwaysRecorveToDefault) {
+                capslockState := processState.CapsLockState
                 processState.RecoverToDefualt()
                 KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State)
-                ; TODO if (CleanOnRecovery)
-                SetCapsLockState("Off")
+                if (ProcessSetting.CleanCapsOnRecovered)
+                    SetCapsLockState("Off")
+                else {
+                    SetCapsLockState(capslockState ? "On" : "Off")
+                    processState.CapsLockState := capslockState
+                }
                 ;TODO 显示 ToolTip
+                ToolTip(WinGetTitle(hWnd) " " (processState.CapsLockState ? "On" : "Off"))
             } else {
                 ; 否则恢复到记录的状态
                 processState := ProcessSetting.StandAlong ? processState : KBLManager.GlobalState
 
                 KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State)
+
                 SetCapsLockState(processState.CapsLockState ? "On" : "Off")
                 ;TODO 显示 ToolTip
+                ToolTip(WinGetTitle(hWnd) " " (processState.CapsLockState ? "On" : "Off"))
             }
             KBLManager.PreviousState := processState
             return
@@ -151,26 +144,47 @@ class KBLManager {
     static OnNewProcessDetected(path, name, hWnd) {
         ; 如果不是 ini 里预先配置的以名字作为 key 的进程，一定是以路径作为 key 的
         ; 非进程独立键盘模式下，不要为未配置进程创建状态记录，如果不存在记录，则使用全局配置
-        result := KBLManager.TryGetProcessState(path, name, &processState, ProcessSetting.StandAlong)
-        regex := ""
-        if (!result) {
-            key := path
-            processState := KBLManager.GlobalState
+
+        ; result := KBLManager.TryGetProcessState(path, name, &processState)
+        ; regex := ""
+        ; if (!result) {
+        ;     key := path
+        ;     processState := KBLManager.GlobalState
+        ; } else {
+        ;     key := result == 1 ? path : name
+        ;     KBLManager.TryGetWindowState(processState, WinGetTitle(hWnd), &processState, &regex)
+        ; }
+        ; kbl := processState.CurrentLayout
+
+        winTitle := WinGetTitle(hWnd)
+        result := KBLManager.TryGetWindowOrProcessState(path, name, winTitle, &_processState, &regex := "")
+        ; 不论结果是 0 还是 1 ，key 都一定是路径
+        key := result == 2 ? path : name
+        kbl := result ? _processState.CurrentLayout : 0
+
+        if (!ProcessSetting.StandAlong) {
+            if (!result || !_processState.AlwaysRecorveToDefault) {
+                _processState := KBLManager.GlobalState
+                if (result)
+                    _processState.CurrentLayout.Set(kbl.Name, kbl.State)
+            }
         } else {
-            key := result == 1 ? path : name
-            KBLManager.TryGetWindowState(processState, WinGetTitle(hWnd), &processState, &regex)
+            if (!result) {
+                KBLManager.ProcessStates[key] := _processState := ProcessState(key, "en-US", 0, false)
+            }
         }
-        kbl := processState.CurrentLayout
+        kbl := _processState.CurrentLayout
 
         if (!KBLManager.runningProcess.Has(key))
             KBLManager.runningProcess[key] := RunningProcessInfo(WinGetPID(hWnd))
-        KBLManager.runningProcess[key].AddRegEx(WinGetTitle(hWnd), regex)
+        KBLManager.runningProcess[key].AddRegEx(winTitle, regex)
 
         KBLTool.SetKBL(hWnd, kbl.Name, kbl.State)
-        SetCapsLockState(processState.CapsLockState ? "On" : "Off")
+        SetCapsLockState(_processState.CapsLockState ? "On" : "Off")
         ;TODO 显示 ToolTip
+        ToolTip(winTitle " " (_processState.CapsLockState ? "On" : "Off"))
 
-        KBLManager.PreviousState := processState
+        KBLManager.PreviousState := _processState
 
         ProcessWaitClose(KBLManager.runningProcess[key].PID)
         KBLManager.OnProcessExit(key)
@@ -192,8 +206,8 @@ class KBLManager {
 
         ; 查询配置里有没有默认配置，有则还原，无则删除
         if (ProcessSetting.ProcessSettings.Has(key)) {
-            result := KBLManager.TryGetProcessState(key, "", &processState, false)
-            if (result == 1)
+            result := KBLManager.TryGetProcessState(key, "", &processState)
+            if (result)
                 processState.RecoverToDefualt()
 
             return
@@ -201,7 +215,48 @@ class KBLManager {
         KBLManager.ProcessStates.Delete(key)
     }
 
-    static TryGetProcessState(key1, key2 := "", &refProcessState?, needCreate := true) {
+    ; 0: 不存在该进程的痕迹 1: 正在运行进程 2.正在运行的进程，且 key 为 name
+    static FindProcessStateIfRunningProcess(hWnd, winTitle, path, name, &processState, &regex?) {
+        result := 0
+        regex := ""
+
+        if (KBLManager.runningProcess.Has(path)) {
+            regex := KBLManager.runningProcess[path].WindowsMatchedRegEx.Has(winTitle) ? KBLManager.runningProcess[path].WindowsMatchedRegEx[winTitle] : ""
+            result := 1
+        } else if (KBLManager.runningProcess.Has(name)) {
+            regex := KBLManager.runningProcess[name].WindowsMatchedRegEx.Has(winTitle) ? KBLManager.runningProcess[name].WindowsMatchedRegEx[winTitle] : ""
+            result := 1
+        }
+
+        ; 当同路径进程已经打开时，会获取路径为 key 的状态
+        ; 否则，获取同名进程的状态
+        ; 非进程独立键盘模式下，不要为未配置进程创建状态记录（状态记录仅用于获取默认键盘配置）
+        if (result) {
+            result := KBLManager.TryGetWindowOrProcessState(path, name, regex, &processState, &regex)
+        }
+
+        return result
+    }
+
+    static GetWinProperties(hWnd, &winTitle?, &processPath?, &processName?) {
+        if (!WinExist(hWnd))
+            return 0
+        winTitle := WinGetTitle(hWnd)
+        processName := WinGetProcessName(hWnd)
+        processPath := WinGetProcessPath(hWnd)
+
+        return hWnd
+    }
+
+    static TryGetWindowOrProcessState(path, name, title, &processState?, &regex?) {
+        result := KBLManager.TryGetProcessState(path, name, &processState)
+        if (result) {
+            KBLManager.TryGetWindowState(processState, title, &processState, &regex)
+        }
+        return result
+    }
+
+    static TryGetProcessState(key1, key2 := "", &refProcessState?) {
         ; 如果有 key1 优先找 key1 ，否则找 key2 ，都没有则以 key1 新建数据
         if (KBLManager.ProcessStates.Has(key1)) {
             key := key1
@@ -209,10 +264,10 @@ class KBLManager {
         } else if (key2 != "" && KBLManager.ProcessStates.Has(key2)) {
             key := key2
             result := 2
-        } else if (needCreate) {
-            key := key1
-            KBLManager.ProcessStates[key] := ProcessState(key, "en-US", 0, false)
-            result := 1
+            ; } else if (needCreate) {
+            ;     key := key1
+            ;     KBLManager.ProcessStates[key] := ProcessState(key, "en-US", 0, false)
+            ;     result := 1
         } else {
             return 0
         }
@@ -249,7 +304,7 @@ class KBLManager {
         name := WinGetProcessName(hWnd)
 
         ; 非独立进程键盘模式下使用全局状态
-        result := KBLManager.TryGetProcessState(name, path, &processState, false)
+        result := KBLManager.TryGetProcessState(name, path, &processState)
         if (result == 0 || !ProcessSetting.StandAlong)
             processState := KBLManager.GlobalState
 
@@ -270,10 +325,13 @@ class KBLManager {
 
         processState.Update(hotkey, index, kbl, state)
         KBLTool.SetKBL(hWnd, kbl, state)
-        ;TODO if (CleanOnSwitch)
-        processState.CapsLockState := 0
-        SetCapsLockState("Off")
+        if (ProcessSetting.CleanCapsOnSwitched) {
+            processState.CapsLockState := 0
+            SetCapsLockState("Off")
+        }
         ;TODO 显示 ToolTip
+        ToolTip(WinGetTitle(hWnd) " " (processState.CapsLockState ? "On" : "Off"))
+
     }
 
     static FindSimilarKBL(layouts, hWnd) {

@@ -29,6 +29,6 @@ class ProcessState {
         this.CurrentLayout := this.DefualtLayout.Clone()
         this.PrevioursSwitch := ""
         this.PrevioursSwitchIndex := 0
-
+        this.CapsLockState := 0
     }
 }
