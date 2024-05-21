@@ -1,14 +1,6 @@
 #Requires AutoHotkey v2.0
 
-; if !A_IsAdmin {
-;     try {
-;         if A_IsCompiled
-;             Run '*RunAs "' A_ScriptFullPath '" /restart'
-;         else
-;             Run '*RunAs "' A_AhkPath '" /restart "' A_ScriptFullPath '"'
-;     }
-; }
-
+#Include lib\Setting\SystemSetting.ahk
 #Include Lib\Setting\KBLSwitchSetting.ahk
 #Include lib\Setting\ProcessSetting.ahk
 #Include Lib\Hotkey\HotKeyPlus.ahk
@@ -25,6 +17,7 @@ Initialize()
 Return
 
 Initialize() {
+    SystemSetting.Initialize(iniFile)
     KBLSwitchSetting.Initialize(iniFile)
     ProcessSetting.Initialize(iniFile)
     KBLTool.Initialize()

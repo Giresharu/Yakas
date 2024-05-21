@@ -1,16 +1,7 @@
 #Requires AutoHotkey v2.0
-#Include ..\Util\Util.ahk
-#Include ..\KBL\KeyboardLayout.ahk
+#Include SystemSetting.ahk
 
 class ProcessSetting {
-    static StandAlong := true
-    static CleanOnProcessExit := true
-    static DefualtKBL := "en-US: 0"
-    static RemenberCaps := true
-    static CleanCapsOnSwitched := true
-    static CleanCapsOnProcessChanged := true
-    static CleanCapsOnRecovered := true
-
     static ProcessSettings := Map()
     WindowSettings := 0
 
@@ -27,19 +18,6 @@ class ProcessSetting {
     }
 
     static FromINI(iniFile) {
-        ProcessSetting.StandAlong := Util.INIRead(iniFile, "GlobalProcessSetting", "StandAlong", "true") == "true"
-        ProcessSetting.CleanOnProcessExit := Util.INIRead(iniFile, "GlobalProcessSetting", "CleanOnProcessExit", "true") == "true"
-
-        ProcessSetting.DefualtKBL := Util.INIRead(iniFile, "GlobalProcessSetting", "DefualtKBL", "en-US: 0")
-        ProcessSetting.DefualtKBL := StrSplit(ProcessSetting.DefualtKBL, ":", " ")
-
-        ProcessSetting.DefualtKBL := KeyboardLayout(ProcessSetting.DefualtKBL[1], ProcessSetting.DefualtKBL[2])
-
-        ProcessSetting.RemenberCaps := Util.INIRead(iniFile, "GlobalProcessSetting", "RemenberCaps", "true") == "true"
-        ProcessSetting.CleanCapsOnSwitched := Util.INIRead(iniFile, "GlobalProcessSetting", "CleanCapsOnSwitched", "true") == "true"
-        ProcessSetting.CleanCapsOnProcessChanged := Util.INIRead(iniFile, "GlobalProcessSetting", "CleanCapsOnProcessChanged", "true") == "true"
-        ProcessSetting.CleanCapsOnRecovered := Util.INIRead(iniFile, "GlobalProcessSetting", "CleanCapsOnRecovered", "true") == "true"
-
         return Util.INIReadForeach(iniFile, "ProcessSetting", ProcessSetting.FromINISection)
     }
 
@@ -69,7 +47,7 @@ class ProcessSetting {
     static FindSettingDic(dic, key, name) {
         if (key != "") {
             if (!dic.Has(key))
-                dic[key] := ProcessSetting(key, ProcessSetting.DefualtKBL, false)
+                dic[key] := ProcessSetting(key, SystemSetting.DefualtKBL, false)
             dic := dic[key]
         }
 

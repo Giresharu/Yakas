@@ -6,6 +6,7 @@
 #Include ..\Util\WinEvent.ahk
 #Include ..\Setting\KBLSwitchSetting.ahk
 #Include ..\Setting\ProcessSetting.ahk
+#Include ..\Setting\SystemSetting.ahk
 
 class KBLManager {
     static runningProcess := Map()
@@ -33,7 +34,7 @@ class KBLManager {
 
     static CapsLockHolding := 0
     static OnCapsLockToggled() {
-        if (!ProcessSetting.RemenberCaps || KBLManager.CapsLockHolding)
+        if (!SystemSetting.RemenberCaps || KBLManager.CapsLockHolding)
             return
 
         hWnd := Util.WinGetID("A")
@@ -46,12 +47,12 @@ class KBLManager {
         result := KBLManager.FindProcessStateIfRunningProcess(hWnd, winTitle, path, name, &processState)
 
         condition := result && !processState.alwaysRecorveToDefault || !result
-        condition := condition && !ProcessSetting.StandAlong
+        condition := condition && !SystemSetting.StandAlong
 
         if (condition) {
             processState := KBLManager.GlobalState
         } else if (!result) {
-            mode := ProcessSetting.StandAlong ? "StandAlong" : "Global"
+            mode := SystemSetting.StandAlong ? "StandAlong" : "Global"
             throw WinGetTitle(hWnd) " processState's result is number: " result " in " mode " mode!"
         }
 
@@ -88,7 +89,7 @@ class KBLManager {
     }
 
     static InitProcessesState() {
-        KBLManager.GlobalState := ProcessState("Global", ProcessSetting.DefualtKBL.Name, ProcessSetting.DefualtKBL.State, false)
+        KBLManager.GlobalState := ProcessState("Global", SystemSetting.DefualtKBL.Name, SystemSetting.DefualtKBL.State, false)
         for i, p in ProcessSetting.ProcessSettings {
             state := KBLManager.ProcessStates[p.Title] := ProcessState(p.Title, p.DefaultKBL.Name, p.DefaultKBL.State, p.AlwaysRecorveToDefault)
             if (p.WindowSettings != 0) {
@@ -114,8 +115,8 @@ class KBLManager {
             if (result != 1 && processState.AlwaysRecorveToDefault) {
                 capslockState := processState.CapsLockState
                 processState.RecoverToDefualt()
-                KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State)
-                if (ProcessSetting.CleanCapsOnRecovered)
+                KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State, SystemSetting.Lag)
+                if (SystemSetting.CleanCapsOnRecovered)
                     SetCapsLockState("Off")
                 else {
                     SetCapsLockState(capslockState ? "On" : "Off")
@@ -125,9 +126,9 @@ class KBLManager {
                 ToolTip(WinGetTitle(hWnd) " " (processState.CapsLockState ? "On" : "Off"))
             } else {
                 ; 否则恢复到记录的状态
-                processState := ProcessSetting.StandAlong ? processState : KBLManager.GlobalState
+                processState := SystemSetting.StandAlong ? processState : KBLManager.GlobalState
 
-                KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State)
+                KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State, SystemSetting.Lag)
 
                 SetCapsLockState(processState.CapsLockState ? "On" : "Off")
                 ;TODO 显示 ToolTip
@@ -162,7 +163,7 @@ class KBLManager {
         key := result == 2 ? path : name
         kbl := result ? _processState.CurrentLayout : 0
 
-        if (!ProcessSetting.StandAlong) {
+        if (!SystemSetting.StandAlong) {
             if (!result || !_processState.AlwaysRecorveToDefault) {
                 _processState := KBLManager.GlobalState
                 if (result)
@@ -179,7 +180,7 @@ class KBLManager {
             KBLManager.runningProcess[key] := RunningProcessInfo(WinGetPID(hWnd))
         KBLManager.runningProcess[key].AddRegEx(winTitle, regex)
 
-        KBLTool.SetKBL(hWnd, kbl.Name, kbl.State)
+        KBLTool.SetKBL(hWnd, kbl.Name, kbl.State, SystemSetting.Lag)
         SetCapsLockState(_processState.CapsLockState ? "On" : "Off")
         ;TODO 显示 ToolTip
         ToolTip(winTitle " " (_processState.CapsLockState ? "On" : "Off"))
@@ -201,7 +202,7 @@ class KBLManager {
 
         ; 非进程独立模式下不要去做任何复原与删除
         ; 未开启退出清理也不要做任何处理
-        if (!ProcessSetting.StandAlong || !ProcessSetting.CleanOnProcessExit)
+        if (!SystemSetting.StandAlong || !SystemSetting.CleanOnProcessExit)
             return
 
         ; 查询配置里有没有默认配置，有则还原，无则删除
@@ -305,7 +306,7 @@ class KBLManager {
 
         ; 非独立进程键盘模式下使用全局状态
         result := KBLManager.TryGetProcessState(name, path, &processState)
-        if (result == 0 || !ProcessSetting.StandAlong)
+        if (result == 0 || !SystemSetting.StandAlong)
             processState := KBLManager.GlobalState
 
         if (processState.PrevioursSwitch == hotkey) {
@@ -324,8 +325,8 @@ class KBLManager {
         state := SwitchSetting[index].DefaultState
 
         processState.Update(hotkey, index, kbl, state)
-        KBLTool.SetKBL(hWnd, kbl, state)
-        if (ProcessSetting.CleanCapsOnSwitched) {
+        KBLTool.SetKBL(hWnd, kbl, state, SystemSetting.Lag)
+        if (SystemSetting.CleanCapsOnSwitched) {
             processState.CapsLockState := 0
             SetCapsLockState("Off")
         }

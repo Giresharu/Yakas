@@ -74,7 +74,7 @@ class KBLTool {
 
     static SetKBLing := false
     ; 设置键盘布局
-    static SetKBL(hWnd, language, state := 0) {
+    static SetKBL(hWnd, language, state := 0, lag := 50) {
         if (KBLTool.SetKBLing) {
             return
         }
@@ -111,7 +111,7 @@ class KBLTool {
         ;     , "Int", code)
         SendMessage(0x50, , code, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd))
 
-        Sleep(53)
+        Sleep(lag)
 
         ; 这俩不用 DllCall 来调用的话，需要 Sleep 更久才可以真的改变输入法状态，非常的神奇
         DllCall("SendMessage"
