@@ -2,82 +2,125 @@
 #Include ..\Util\Util.ahk
 
 class ToolTipSetting {
+    static Global := ""
+    static ToolTips := Map()
 
-    __New(globalSetting, overridesSetting) {
-        ToolTipSetting.Global := globalSetting
-        ToolTipSetting.Overrides := overridesSetting
+    static __Item[key] => ToolTipSetting.ToolTips[key]
+
+    __New(
+        text,
+        captical_text,
+        offset,
+        textColor,
+        bgColor,
+        alpha,
+        fontSize,
+        fontFamily,
+        fontStyle,
+        duration?
+    ) {
+        this.Text := text
+        this.CapticalText := captical_text
+        this.Offset := offset
+        this.TextColor := textColor
+        this.BgColor := bgColor
+        this.Alpha := alpha
+        this.FontSize := fontSize
+        this.FontFamily := fontFamily
+        this.FontStyle := fontStyle
+        this.Duration := duration
     }
 
-    __Item[i] => ToolTipSetting.Overrides[i]
-
-    static FromIni(value) {
-
-        globalSetting := ToolTipSetting.Override.FromIni("GlobalToolTip", true)
-        overridesSetting := Util.INIReadForeach(iniFile, "ToolTip", ToolTipSetting.Override.FromIni)
-
-        return ToolTipSetting(globalSetting, overridesSetting)
+    static Initialize(iniFile) {
+        ToolTipSetting.Global := ToolTipSetting.ParseINI(iniFile, "GlobalToolTip")
+        ToolTipSetting.ToolTips := ToolTipSetting.FromINI(iniFile)
     }
 
-    ; TODO 写入 INI
+    static FromINI(iniFile) {
+        return Util.INIReadForeach(iniFile, "ToolTip", ToolTipSetting.FromINISection)
+    }
 
-    class Override {
+    static ParseINI(iniFile, section) {
+        key := Trim(section, "ToolTip.")
+        defualt := ToolTipSetting.Global
 
-        __New(
-            text,
-            textColor,
-            bgColor,
-            fontSize,
-            fontFamily,
-            fontWeight,
-            fontFamilyCallback,
-            duration?
-        ) {
-            this.Text := text
-            this.TextColor := textColor
-            this.BgColor := bgColor
-            this.FontSize := fontSize
-            this.FontFamily := fontFamily
-            this.FontWeight := fontWeight
-            this.FontFamilyCallback := fontFamilyCallback
-            this.Duration := duration
+        text := Util.INIRead(iniFile, section, "text", "")
+
+        if (!text := ToolTipSetting.ParseText(text)) {
+            if (defualt == "") {
+                text := Map()
+                text["regular"] := key
+            } else
+                text := defualt.Text
         }
 
-        static FromIni(value, isGlobal := false) {
-            if (isGlobal) {
-                text := ""
-                textColor := Util.INIRead(iniFile, value, "text_color", 0x5090FFFF)
-                bgColor := Util.INIRead(iniFile, value, "bg_color", 0x252525BB)
-                fontSize := Util.INIRead(iniFile, value, "font_size", 12)
-                fontWeight := Util.INIRead(iniFile, value, "font_weight", "bold")
-                fontFamily := Util.INIRead(iniFile, value, "font_family", "Arial")
-                fontFamilyCallback := Util.StrToArray(Util.INIRead(iniFile, value, "font_family_callback", "思源黑体, 微软雅黑"))
-                duration := Util.INIRead(iniFile, value, "duration", "500")
-            } else {
-                section := "ToolTip." . value
+        capticalText := Util.INIRead(iniFile, section, "captical_text", "")
 
-                text := Util.INIRead(iniFile, section, "text", value) ; 如果没有定义要显示的文字，则使用 section 的二级标题作为文字
-                textColor := Util.INIRead(iniFile, section, "text_color", "")
-                bgColor := Util.INIRead(iniFile, section, "bg_color", "")
-                fontSize := Util.INIRead(iniFile, section, "font_size", "")
-                fontWeight := Util.INIRead(iniFile, section, "font_weight", "")
-                fontFamily := Util.INIRead(iniFile, section, "font_family", "")
-                fontFamilyCallback := Util.StrToArray(Util.INIRead(iniFile, section, "font_family_callback", ""))
-                duration := Util.INIRead(iniFile, section, "duration", "")
+        if (!capticalText := ToolTipSetting.ParseText(capticalText)) {
+            if (defualt == "")
+                capticalText := text
+            else
+                capticalText := defualt.CapticalText
+        }
+
+        if (defualt != "") {
+            offset := Util.INIRead(iniFile, section, "offset", defualt.Offset)
+            textColor := Util.INIRead(iniFile, section, "text_color", defualt.TextColor)
+            bgColor := Util.INIRead(iniFile, section, "bg_color", defualt.BgColor)
+            alpha := Util.INIRead(iniFile, section, "alpha", defualt.Alpha)
+            fontSize := Util.INIRead(iniFile, section, "font_size", defualt.FontSize)
+            fontFamily := Util.INIRead(iniFile, section, "font_family", defualt.FontFamily)
+            fontStyle := Util.INIRead(iniFile, section, "font_Style", defualt.FontStyle)
+            duration := Util.INIRead(iniFile, section, "duration", defualt.Duration)
+        } else {
+            offset := Util.INIRead(iniFile, section, "offset", 0)
+            textColor := Util.INIRead(iniFile, section, "text_color", "0xFFF")
+            bgColor := Util.INIRead(iniFile, section, "bg_color", "0x000")
+            alpha := Util.INIRead(iniFile, section, "alpha", "200")
+            fontSize := Util.INIRead(iniFile, section, "font_size", "16")
+            fontFamily := Util.INIRead(iniFile, section, "font_family", "Arial")
+            fontStyle := Util.INIRead(iniFile, section, "font_Style", "Bold")
+            duration := Util.INIRead(iniFile, section, "duration", "500")
+        }
+
+        return ToolTipSetting(text, capticalText, offset, textColor, bgColor, alpha, fontSize, fontFamily, fontStyle, duration)
+    }
+
+    static ParseText(text) {
+        if (text == "")
+            return 0
+        textMap := Map()
+        texts := Util.StrToArray(text, ",")
+        for i, t in texts {
+            ts := StrSplit(t, ":", " ")
+            if (ts.Length < 2) {
+                textMap["regular"] := t
+                continue
             }
-
-            return ToolTipSetting.Override(
-                text,
-                textColor,
-                bgColor,
-                fontSize,
-                fontWeight,
-                fontFamily,
-                fontFamilyCallback,
-                duration
-            )
+            textMap[Integer(ts[1])] := ts[2]
         }
-
-        ; TODO 写入 INI
-
+        return textMap
     }
+
+    static FromINISection(iniFile, value, dic, key) {
+        section := "ToolTip." value
+        dic[key] := ToolTipSetting.ParseINI(iniFile, section)
+    }
+
+    GetText(state, capslock) {
+        if (capslock)
+            return this.GetCapticalText(state)
+        if (this.Text.Has(state))
+            return this.Text[state]
+        else
+            return this.Text["regular"]
+    }
+
+    GetCapticalText(state) {
+        if (this.CapticalText.Has(state))
+            return this.CapticalText[state]
+        else
+            return this.CapticalText["regular"]
+    }
+
 }

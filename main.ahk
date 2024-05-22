@@ -3,11 +3,12 @@
 #Include lib\Setting\SystemSetting.ahk
 #Include Lib\Setting\KBLSwitchSetting.ahk
 #Include lib\Setting\ProcessSetting.ahk
+#Include lib\Setting\ToolTipSetting.ahk
 #Include Lib\Hotkey\HotKeyPlus.ahk
 #Include lib\KBL\KBLTool.ahk
 #Include lib\KBL\KBLManager.ahk
 #Include lib\Util\WinEvent.ahk
-; DetectHiddenWindows True
+#Include lib\Gui\ToolTip.ahk
 
 iniFile := "setting.ini"
 languageCodeFile := "languageCode"
@@ -20,6 +21,7 @@ Initialize() {
     SystemSetting.Initialize(iniFile)
     KBLSwitchSetting.Initialize(iniFile)
     ProcessSetting.Initialize(iniFile)
+    ToolTipSetting.Initialize(iniFile)
     KBLTool.Initialize()
     KBLManager.Initialize()
 }
