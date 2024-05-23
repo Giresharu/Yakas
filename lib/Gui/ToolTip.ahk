@@ -8,6 +8,7 @@ ToolTipPlus(kbl, state, capslock) {
     static myGui := Gui("-SysMenu +ToolWindow +AlwaysOnTop -Caption -DPIScale +E0x20")
     static RefreshRate := 60
 
+    ChangeTray()
     if (timer != "")
         SetTimer(timer, 0)
 
@@ -37,6 +38,7 @@ ToolTipPlus(kbl, state, capslock) {
     textControl.Move(x, y)
 
     GetCaretPos(&x, &y)
+    ; WinGetPos(&wx, &wy, &ww, &wh, "A")
     ; 没有输入控件的话则取鼠标位置
     if (x == 0 && y == 0) {
         temp := A_CoordModeMouse
@@ -44,6 +46,9 @@ ToolTipPlus(kbl, state, capslock) {
         MouseGetPos(&x, &y)
         A_CoordModeMouse := temp
     }
+
+    ;如果超过当前窗口的范围，则自动调整位置
+
 
     x := x - boxSize
     y := y - boxSize
@@ -81,5 +86,24 @@ ToolTipPlus(kbl, state, capslock) {
         WinSetTransparent(alpha, myGui.hWnd)
     }
 
+    ChangeTray() {
+        iconPath := A_ScriptDir "\icons\"
+        language := kbl "\"
+        Caps := (capslock ? "Caps" : "")
+
+        path := iconPath language Caps state ".png"
+        if (!FileExist(path))
+            path := iconPath language Caps ".png"
+        if (!FileExist(path))
+            path := iconPath language "icon.png"
+        if (!FileExist(path))
+            path := iconPath "icon.png"
+
+
+        if (FileExist(path)) {
+            TraySetIcon(path)
+        }
+  
+    }
 
 }

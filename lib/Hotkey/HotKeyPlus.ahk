@@ -52,9 +52,10 @@ class HotKeyPlus {
 
     OnReleased() {
         ; 如果有其他主键在这个过程中被按下则不触发
-        if (this.mainKeys[-1] != A_PriorKey)
+        if (this.mainKeys[-1] != A_PriorKey) {
+            this.UpdateState("Canceled")
             return
-
+        }
         ; release 直接触发
         if (this.holdTime <= 0) {
             this.UpdateState("Successed")

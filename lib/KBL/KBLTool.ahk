@@ -33,15 +33,13 @@ class KBLTool {
         }
 
         ; 提示未知键盘
-        if (errorCodes.Length > 0) {
-            str := ""
-            for code in errorCodes {
-                str := str "`n" code
-            }
-            MsgBox("`n注册表 HKEY_CURRENT_USER\Keyboard Layout\Preload 中包含未知的键盘布局代码:" str " `n请将此错误提交至仓库 Issue。`n程序将在无视此键盘布局的情况下运行。", "未知的键盘布局代码", 32)
-            ; TODO 自动打开 Issue 页面按钮
-            ; TODO 提供按键忽略当前未知的键盘布局，下次在 Loop 时直接跳过
-        }
+        ; if (errorCodes.Length > 0) {
+        ;     str := ""
+        ;     for code in errorCodes {
+        ;         str := str "`n" code
+        ;     }
+        ;     ToolTip("`n注册表 HKEY_CURRENT_USER\Keyboard Layout\Preload 中包含未知的键盘布局代码:" str " `n请将此错误提交至仓库 Issue。`n程序将在无视此键盘布局的情况下运行。", "未知的键盘布局代码", 32)
+        ; }
         return kblCodes
     }
 
@@ -89,45 +87,45 @@ class KBLTool {
         temp := A_DetectHiddenWindows
         A_DetectHiddenWindows := true
         Thread "NoTimers"
+        try {
+            ; 自动上屏
+            if (WinExist("ahk_group AutoSendString")) {
+                SendInput("{Enter}")
+            }
 
-        ; 自动上屏
-        if (WinExist("ahk_group AutoSendString")) {
-            SendInput("{Enter}")
+            if (WinActive(hWnd)) {
+                ptrSize := !A_PtrSize ? 4 : A_PtrSize
+                cbSize := 4 + 4 + (PtrSize * 6) + 16	; DWORD*2+HWND*6+RECT
+                stGTI := Buffer(cbSize, 0)
+                NumPut("UInt", cbSize, stGTI.Ptr, 0)   ;   DWORD   cbSize;
+                hWnd := DllCall("GetGUIThreadInfo", "Uint", 0, "Uint", stGTI.Ptr)
+                    ? NumGet(stGTI.Ptr, 8 + PtrSize, "Uint") : hwnd
+            }
+
+            ; DllCall("SendMessage"
+            ;     , "UInt", DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd)
+            ;     , "UInt", 0x50
+            ;     , "Int", 0
+            ;     , "Int", code)
+            SendMessage(0x50, , code, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd), 100)
+
+            Sleep(lag)
+
+            ; 这俩不用 DllCall 来调用的话，需要 Sleep 更久才可以真的改变输入法状态，非常的神奇
+            DllCall("SendMessage"
+                , "UInt", DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd)
+                , "UInt", 0x0283      ;Message : WM_IME_CONTROL
+                , "Int", 0x002       ;wParam  : IMC_SETCONVERSIONMODE
+                , "Int", state)   ;lParam  : CONVERSIONMODE
+            DllCall("SendMessage"
+                , "UInt", DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd)
+                , "UInt", 0x0283      ;Message : WM_IME_CONTROL
+                , "Int", 0x006       ;wParam  : IMC_SETCONVERSIONMODE
+                , "Int", 1)   ;lParam  : CONVERSIONMODE
+
+            ; SendMessage(0x283, 0x6, 1, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd))
+            ; SendMessage(0x283, 0x2, state, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd))
         }
-
-        if (WinActive(hWnd)) {
-            ptrSize := !A_PtrSize ? 4 : A_PtrSize
-            cbSize := 4 + 4 + (PtrSize * 6) + 16	; DWORD*2+HWND*6+RECT
-            stGTI := Buffer(cbSize, 0)
-            NumPut("UInt", cbSize, stGTI.Ptr, 0)   ;   DWORD   cbSize;
-            hWnd := DllCall("GetGUIThreadInfo", "Uint", 0, "Uint", stGTI.Ptr)
-                ? NumGet(stGTI.Ptr, 8 + PtrSize, "Uint") : hwnd
-        }
-
-        ; DllCall("SendMessage"
-        ;     , "UInt", DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd)
-        ;     , "UInt", 0x50
-        ;     , "Int", 0
-        ;     , "Int", code)
-        SendMessage(0x50, , code, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd))
-
-        Sleep(lag)
-
-        ; 这俩不用 DllCall 来调用的话，需要 Sleep 更久才可以真的改变输入法状态，非常的神奇
-        DllCall("SendMessage"
-            , "UInt", DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd)
-            , "UInt", 0x0283      ;Message : WM_IME_CONTROL
-            , "Int", 0x002       ;wParam  : IMC_SETCONVERSIONMODE
-            , "Int", state)   ;lParam  : CONVERSIONMODE
-        DllCall("SendMessage"
-            , "UInt", DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd)
-            , "UInt", 0x0283      ;Message : WM_IME_CONTROL
-            , "Int", 0x006       ;wParam  : IMC_SETCONVERSIONMODE
-            , "Int", 1)   ;lParam  : CONVERSIONMODE
-
-        ; SendMessage(0x283, 0x6, 1, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd))
-        ; SendMessage(0x283, 0x2, state, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd))
-
         Thread "NoTimers", false
         A_DetectHiddenWindows := temp
         KBLTool.SetKBLing := false

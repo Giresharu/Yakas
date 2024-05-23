@@ -2,6 +2,8 @@
 
 class Util {
     static WinGetID(title := "A") {
+        while (!WinExist(title))
+            Sleep(1000 / 24)
         hWnd := WinGetID(title)
         return Util.FixUWPWinID(hWnd)
     }

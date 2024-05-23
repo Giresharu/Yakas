@@ -179,10 +179,9 @@ class KBLManager {
 
         KBLTool.SetKBL(hWnd, kbl.Name, kbl.State, SystemSetting.Lag)
         SetCapsLockState(_processState.CapsLockState ? "On" : "Off")
-        
-        if (KBLManager.PreviousState != "") {
-            if (!_processState.CompareStateWith(KBLManager.PreviousState, true))
-                ToolTipPlus(_processState.CurrentLayout.Name, _processState.CurrentLayout.State, _processState.CapsLockState)
+
+        if (KBLManager.PreviousState == "" || !_processState.CompareStateWith(KBLManager.PreviousState, true)) {
+            ToolTipPlus(_processState.CurrentLayout.Name, _processState.CurrentLayout.State, _processState.CapsLockState)
         }
 
         KBLManager.PreviousState := _processState
