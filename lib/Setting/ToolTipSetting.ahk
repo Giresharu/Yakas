@@ -17,7 +17,8 @@ class ToolTipSetting {
         fontSize,
         fontFamily,
         fontStyle,
-        duration?
+        duration,
+        fadeTime
     ) {
         this.Text := text
         this.CapticalText := captical_text
@@ -29,6 +30,7 @@ class ToolTipSetting {
         this.FontFamily := fontFamily
         this.FontStyle := fontStyle
         this.Duration := duration
+        this.FadeTime := fadeTime
     }
 
     static Initialize(iniFile) {
@@ -72,6 +74,7 @@ class ToolTipSetting {
             fontFamily := Util.INIRead(iniFile, section, "font_family", defualt.FontFamily)
             fontStyle := Util.INIRead(iniFile, section, "font_Style", defualt.FontStyle)
             duration := Util.INIRead(iniFile, section, "duration", defualt.Duration)
+            fadeTime := Util.INIRead(iniFile, section, "fade_time", defualt.FadeTime)
         } else {
             offset := Util.INIRead(iniFile, section, "offset", 0)
             textColor := Util.INIRead(iniFile, section, "text_color", "0xFFF")
@@ -79,11 +82,12 @@ class ToolTipSetting {
             alpha := Util.INIRead(iniFile, section, "alpha", "200")
             fontSize := Util.INIRead(iniFile, section, "font_size", "16")
             fontFamily := Util.INIRead(iniFile, section, "font_family", "Arial")
-            fontStyle := Util.INIRead(iniFile, section, "font_Style", "Bold")
-            duration := Util.INIRead(iniFile, section, "duration", "500")
+            fontStyle := Util.INIRead(iniFile, section, "font_Style", "")
+            duration := Util.INIRead(iniFile, section, "duration", "750")
+            fadeTime := Util.INIRead(iniFile, section, "fade_time", "750")
         }
 
-        return ToolTipSetting(text, capticalText, offset, textColor, bgColor, alpha, fontSize, fontFamily, fontStyle, duration)
+        return ToolTipSetting(text, capticalText, offset, textColor, bgColor, alpha, fontSize, fontFamily, fontStyle, duration, fadeTime)
     }
 
     static ParseText(text) {

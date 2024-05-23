@@ -2,6 +2,7 @@
 
 #Include KBLTool.ahk
 #Include ProcessState.ahk
+#Include ..\Gui\ToolTip.ahk
 #Include ..\Hotkey\HotKeyPlus.ahk
 #Include ..\Util\WinEvent.ahk
 #Include ..\Setting\KBLSwitchSetting.ahk
@@ -56,7 +57,7 @@ class KBLManager {
             throw WinGetTitle(hWnd) " processState's result is number: " result " in " mode " mode!"
         }
 
-        ; TODO 可能会有 BUG，暂时不知道会不会有 processState.CapsLockState 与实际不符的情况，所以预防万一做一个超时检测
+        ; TODO 可能会有 BUG
         startTick := A_TickCount
         while (true) {
             state := GetKeyState("CapsLock", "T")
@@ -64,13 +65,12 @@ class KBLManager {
                 break
             Sleep(1000 / 60)
             if (A_TickCount - startTick > 500)
-                throw "Check CapsLock state timeout!"
+                break
         }
 
         if (processState.CapsLockState != state) {
             processState.CapsLockState := state
-            ;TODO 显示 ToolTip
-            ToolTip(WinGetTitle(hWnd) " " (state ? "On" : "Off"))
+            ToolTipPlus(processState.CurrentLayout.Name, processState.CurrentLayout.State, state)
         }
 
         ; 循环检测释放，允许下次按下 CapsLock 生效
@@ -81,10 +81,6 @@ class KBLManager {
                 KBLManager.CapsLockHolding := 0
             }
         }
-
-    }
-
-    static UpdateCapsLockState(processState, state) {
 
     }
 
@@ -122,17 +118,18 @@ class KBLManager {
                     SetCapsLockState(capslockState ? "On" : "Off")
                     processState.CapsLockState := capslockState
                 }
-                ;TODO 显示 ToolTip
-                ToolTip(WinGetTitle(hWnd) " " (processState.CapsLockState ? "On" : "Off"))
+
             } else {
                 ; 否则恢复到记录的状态
                 processState := SystemSetting.StandAlong ? processState : KBLManager.GlobalState
 
                 KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State, SystemSetting.Lag)
-
                 SetCapsLockState(processState.CapsLockState ? "On" : "Off")
-                ;TODO 显示 ToolTip
-                ToolTip(WinGetTitle(hWnd) " " (processState.CapsLockState ? "On" : "Off"))
+            }
+            ; 当 CapsLock 与 KBL 有其一发生变化时，显示 ToolTip
+            if (KBLManager.PreviousState != "") {
+                if (!processState.CompareStateWith(KBLManager.PreviousState, true))
+                    ToolTipPlus(processState.CurrentLayout.Name, processState.CurrentLayout.State, processState.CapsLockState)
             }
             KBLManager.PreviousState := processState
             return
@@ -182,8 +179,11 @@ class KBLManager {
 
         KBLTool.SetKBL(hWnd, kbl.Name, kbl.State, SystemSetting.Lag)
         SetCapsLockState(_processState.CapsLockState ? "On" : "Off")
-        ;TODO 显示 ToolTip
-        ToolTip(winTitle " " (_processState.CapsLockState ? "On" : "Off"))
+        
+        if (KBLManager.PreviousState != "") {
+            if (!_processState.CompareStateWith(KBLManager.PreviousState, true))
+                ToolTipPlus(_processState.CurrentLayout.Name, _processState.CurrentLayout.State, _processState.CapsLockState)
+        }
 
         KBLManager.PreviousState := _processState
 
@@ -195,7 +195,7 @@ class KBLManager {
         ; 部分软件的进程退出有延迟，比如 QQ ，所以有时关闭软件又立刻打开会误触发下面的代码把进程状态还原
         ; 所以如果检测到进程还在，则不做任何退出处理
         ; 这会造成不还原默认键盘的问题，但这是 Feature
-        if (ProcessExist(KBLManager.runningProcess[key]))
+        if (ProcessExist(KBLManager.runningProcess[key].PID))
             return
 
         KBLManager.runningProcess.Delete(key)
@@ -330,9 +330,8 @@ class KBLManager {
             processState.CapsLockState := 0
             SetCapsLockState("Off")
         }
-        ;TODO 显示 ToolTip
-        ToolTip(WinGetTitle(hWnd) " " (processState.CapsLockState ? "On" : "Off"))
 
+        ToolTipPlus(kbl, state, processState.CapsLockState)
     }
 
     static FindSimilarKBL(layouts, hWnd) {
@@ -351,6 +350,7 @@ class KBLManager {
         }
         return mostSimilar
     }
+
 }
 
 class RunningProcessInfo {
