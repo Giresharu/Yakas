@@ -91,7 +91,7 @@ class KBLTool {
         Thread "NoTimers"
 
         ; 自动上屏
-        if (WinExist("ahk_class PalmInputUICand")) {
+        if (WinExist("ahk_group AutoSendString")) {
             SendInput("{Enter}")
         }
 

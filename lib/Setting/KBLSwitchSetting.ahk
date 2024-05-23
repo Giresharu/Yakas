@@ -33,7 +33,7 @@ class KBLSwitchSetting {
     }
 
     static AddToGroup(iniFile, value, dic, _) {
-        GroupAdd "AutoSendString", Trim(value, " ")
+        GroupAdd "AutoSendString", "ahk_class " Trim(value, " ")
     }
 
     static SplitKeys(key) {
