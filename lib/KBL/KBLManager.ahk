@@ -157,10 +157,11 @@ class KBLManager {
         winTitle := WinGetTitle(hWnd)
         result := KBLManager.TryGetWindowOrProcessState(path, name, winTitle, &_processState, &regex := "")
         ; 不论结果是 0 还是 1 ，key 都一定是路径
-        key := result == 2 ? path : name
+        key := result != 2 ? path : name
         kbl := result ? _processState.CurrentLayout : 0
 
         if (!GlobalSetting.StandAlong) {
+            ; 如果没有该配置，或者该配置并不总是恢复到默认键盘，则使用全局键盘来管理
             if (!result || !_processState.AlwaysRecorveToDefault) {
                 _processState := KBLManager.GlobalState
                 if (result)
