@@ -2,9 +2,9 @@
 ; Ver 1.0.0
 
 #Requires AutoHotkey v2.0
-
 #SingleInstance Force
-#Include lib\Setting\SystemSetting.ahk
+
+#Include lib\Setting\GlobalSetting.ahk
 #Include Lib\Setting\KBLSwitchSetting.ahk
 #Include lib\Setting\ProcessSetting.ahk
 #Include lib\Setting\ToolTipSetting.ahk
@@ -18,7 +18,7 @@ iniFile := "setting.ini"
 languageCodeFile := "languageCode"
 FileEncoding("UTF-8")
 
-SystemSetting.Initialize(iniFile)
+GlobalSetting.Initialize(iniFile)
 KBLSwitchSetting.Initialize(iniFile)
 ProcessSetting.Initialize(iniFile)
 ToolTipSetting.Initialize(iniFile)

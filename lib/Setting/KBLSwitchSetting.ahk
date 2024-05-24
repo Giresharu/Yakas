@@ -54,7 +54,7 @@ class KBLSwitchSetting {
     }
 
     static ParseCondition(value, key, condition) {
-        releaseKeys := Util.INIRead(iniFile, "KBLSwitch." value, "release_key", "")
+        ; releaseKeys := Util.INIRead(iniFile, "KBLSwitch." value, "release_key", "")
 
         holdTime := 0
         reverse := false
@@ -69,7 +69,7 @@ class KBLSwitchSetting {
 
         holdTime := RegExMatch(condition, "\d+", &holdTime) ? holdTime[0] : 0
 
-        return KBLSwitchSetting.Condition(release, reverse, holdTime, releaseKeys)
+        return KBLSwitchSetting.Condition(release, reverse, holdTime)
     }
 
     static ParseKBLayout(str) {
@@ -104,11 +104,11 @@ class KBLSwitchSetting {
 
     class Condition {
 
-        __New(needRelease, reverseHold, holdTime, releaseKeys) {
+        __New(needRelease, reverseHold, holdTime) {
             this.NeedRelease := needRelease
             this.ReverseHold := reverseHold
             this.HoldTime := holdTime
-            this.ReleaseKeys := releaseKeys
+            ; this.ReleaseKeys := releaseKeys
         }
     }
 }

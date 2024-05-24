@@ -1,5 +1,5 @@
 #Requires AutoHotkey v2.0
-#Include SystemSetting.ahk
+#Include GlobalSetting.ahk
 
 class ProcessSetting {
     static ProcessSettings := Map()
@@ -47,7 +47,7 @@ class ProcessSetting {
     static FindSettingDic(dic, key, name) {
         if (key != "") {
             if (!dic.Has(key))
-                dic[key] := ProcessSetting(key, SystemSetting.DefualtKBL, false)
+                dic[key] := ProcessSetting(key, GlobalSetting.DefualtKBL, false)
             dic := dic[key]
         }
 
