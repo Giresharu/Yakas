@@ -128,7 +128,7 @@ class KBLManager {
             }
             ; 当 CapsLock 与 KBL 有其一发生变化时，显示 ToolTip
             if (KBLManager.PreviousState != "") {
-                if (!processState.CompareStateWith(KBLManager.PreviousState, true))
+                if (!processState.CompareStateWith(KBLManager.PreviousState))
                     ToolTipPlus(processState.CurrentLayout.Name, processState.CurrentLayout.State, processState.CapsLockState)
             }
             KBLManager.PreviousState := processState
@@ -181,7 +181,7 @@ class KBLManager {
         KBLTool.SetKBL(hWnd, kbl.Name, kbl.State, GlobalSetting.Lag)
         SetCapsLockState(_processState.CapsLockState ? "On" : "Off")
 
-        if (KBLManager.PreviousState == "" || !_processState.CompareStateWith(KBLManager.PreviousState, true)) {
+        if (KBLManager.PreviousState == "" || !_processState.CompareStateWith(KBLManager.PreviousState)) {
             ToolTipPlus(_processState.CurrentLayout.Name, _processState.CurrentLayout.State, _processState.CapsLockState)
         }
 
