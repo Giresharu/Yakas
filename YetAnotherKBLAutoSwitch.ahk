@@ -1,5 +1,5 @@
 ; YetAnotherKBLAutoSwitch
-; Ver 1.0.0
+; Ver 0.0.1a
 
 #Requires AutoHotkey v2.0
 #SingleInstance Force
