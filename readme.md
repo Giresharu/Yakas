@@ -346,11 +346,17 @@ text = あ, 11: カ  ; 片假名状态（11）下显示「カ」
 图标的大小推荐为 16x16 像素。
 
 ### 感谢
-本工具的诞生灵感来自 [KBLAutoSwitch](https://github.com/flyinclouds/KBLAutoSwitch) ，感谢 flyinclouds 的开源代码，即使是 v1 版本的代码，也给了我很多启发。本工具做出的一些特色，也只是站在巨人的肩膀上。
+- 本工具的诞生灵感来自 [KBLAutoSwitch](https://github.com/flyinclouds/KBLAutoSwitch) ，感谢 flyinclouds 的开源代码，即使是 v1 版本的代码，也给了我很多启发。本工具做出的一些特色，也只是站在巨人的肩膀上。
 
-感谢 [AHK 官方论坛](https://www.autohotkey.com/boards/) 的各位高手，不厌其烦地为我解答 AHK 的各种问题。没有他们的解惑，我也无法在短时间内使用 AHK 这个语言开发出这款工具。
+- 感谢 SKAN 提供的使用任务计划避免每次都出弹 UAC 的功能 [RunAsTask](https://www.autohotkey.com/boards/viewtopic.php?f=83&t=119710) 。
 
-感谢 AHK 项目的维护者们，这款软件让对 Windows API 一窍不通的我也能做出一些简单的 hook 键盘操作。
+- 感谢 Descolada 提供的 [AHK-v2-libraries](https://github.com/Descolada/AHK-v2-libraries) 中的 WinEvent 相关函数，让本工具能够监听到窗口的创建、切换等事件，避免了循环检测。
+
+- 感谢 plankoe 提供的 [GetCaretPos](https://www.reddit.com/r/AutoHotkey/comments/ysuawq/get_the_caret_location_in_any_program/) 函数，让本工具可以检测到 ACC 和 UIA 程序的输入框光标位置。
+
+- 感谢 [AHK 官方论坛](https://www.autohotkey.com/boards/) 的各位高手，不厌其烦地为我解答 AHK 的各种问题。没有他们的解惑，我也无法在短时间内使用 AHK 这个语言开发出这款工具。
+
+- 感谢 AHK 项目的维护者们，这款软件让对 Windows API 一窍不通的我也能做出一些简单的 hook 键盘操作。
 
 ### 吐槽
 虽然很感谢 AHK ，但是我还是忍不住要吐槽一些东西：
