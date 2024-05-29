@@ -47,21 +47,21 @@ class KBLTool {
     static GetCurrentKBL(hWnd) {
         temp := A_DetectHiddenWindows
         A_DetectHiddenWindows := true
+        try {
+            threadId := DllCall(KBLTool.GetWindowThreadProcessId, "Ptr", hWnd, "Uint", 0)
+            kbl := DllCall(KBLTool.GetKeyboardLayout, "Uint", threadId, "UInt")
 
-        threadId := DllCall(KBLTool.GetWindowThreadProcessId, "Ptr", hWnd, "Uint", 0)
-        kbl := DllCall(KBLTool.GetKeyboardLayout, "Uint", threadId, "UInt")
+            if (WinExist(hWnd)) {
+                ptrSize := !A_PtrSize ? 4 : A_PtrSize
+                cbSize := 4 + 4 + (PtrSize * 6) + 16	; DWORD*2+HWND*6+RECT
+                stGTI := Buffer(cbSize, 0)
+                NumPut("UInt", cbSize, stGTI.Ptr, 0)   ;   DWORD   cbSize;
+                hWnd := DllCall(KBLTool.GetUIThreadInfo, "Uint", 0, "Uint", stGTI.Ptr)
+                    ? NumGet(stGTI.Ptr, 8 + PtrSize, "Uint") : hwnd
+            }
 
-        if (WinExist(hWnd)) {
-            ptrSize := !A_PtrSize ? 4 : A_PtrSize
-            cbSize := 4 + 4 + (PtrSize * 6) + 16	; DWORD*2+HWND*6+RECT
-            stGTI := Buffer(cbSize, 0)
-            NumPut("UInt", cbSize, stGTI.Ptr, 0)   ;   DWORD   cbSize;
-            hWnd := DllCall(KBLTool.GetUIThreadInfo, "Uint", 0, "Uint", stGTI.Ptr)
-                ? NumGet(stGTI.Ptr, 8 + PtrSize, "Uint") : hwnd
+            state := SendMessage(0x283, 0x001, , , DllCall(KBLTool.ImmGetDefaultIMEWnd, "Uint", hwnd))
         }
-
-        state := SendMessage(0x283, 0x001, , , DllCall(KBLTool.ImmGetDefaultIMEWnd, "Uint", hwnd))
-
 
         A_DetectHiddenWindows := temp
         name := KBLTool.LangIdToName(Format('{:04x}', kbl & 0x3FFF))
@@ -74,19 +74,19 @@ class KBLTool {
     ; 设置键盘布局
     static SetKBL(hWnd, language, state := 0, lag := 50) {
         Thread "NoTimers"
-        loop {
-            windowHWnd := hWnd
+        temp := A_DetectHiddenWindows
+        try {
+            loop {
+                windowHWnd := hWnd
+                try {
+                    code := KBLTool.KBLCodes[language]
+                    code := "0x" code code
+                } catch Error as e {
+                    MsgBox("未发现键盘布局" language " , 本机上似乎没有这个语言的键盘布局。", "未发现键盘布局", 16)
+                    throw e
+                }
+                A_DetectHiddenWindows := true
 
-            try {
-                code := KBLTool.KBLCodes[language]
-                code := "0x" code code
-            } catch Error as e {
-                MsgBox("未发现键盘布局" language " , 本机上似乎没有这个语言的键盘布局。", "未发现键盘布局", 16)
-                throw e
-            }
-            temp := A_DetectHiddenWindows
-            A_DetectHiddenWindows := true
-            try {
                 ; 自动上屏
                 if (WinExist("ahk_group AutoSendString")) {
                     SendInput("{Enter}")
@@ -121,17 +121,17 @@ class KBLTool {
 
                 ; SendMessage(0x283, 0x6, 1, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd))
                 ; SendMessage(0x283, 0x2, state, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd))
+
+
+                ; 判断是否切换成功
+                kbl := KBLTool.GetCurrentKBL(windowHWnd)
+                if (kbl.name != language || kbl.state != state)
+                    continue
+
+                break
             }
-
-            A_DetectHiddenWindows := temp
-
-            ; 判断是否切换成功
-            kbl := KBLTool.GetCurrentKBL(windowHWnd)
-            if (kbl.name != language || kbl.state != state)
-                continue
-
-            break
         }
+        A_DetectHiddenWindows := temp
         Thread "NoTimers", false
     }
 

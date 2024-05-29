@@ -26,12 +26,14 @@ class ProcessState {
         this.WindowStates[state.Title] := state
     }
 
-    RecoverToDefualt() {
+    RecoverToDefualtValue() {
         this.CurrentLayout.Set(this.DefualtLayout.Name, this.DefualtLayout.State, "", 0, 0)
-        ; this.PrevioursSwitch := ""
-        ; this.PrevioursSwitchIndex := 0
-        ; this.CapsLockState := 0
     }
+    
+    RecoverToDefualt() {
+        this.CurrentLayout := this.DefualtLayout.Clone()
+    }
+
 
     CompareStateWith(otherState, ignoreCapsLock := false) {
         if (this.CurrentLayout.Name != otherState.CurrentLayout.Name)

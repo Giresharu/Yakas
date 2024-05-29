@@ -115,7 +115,7 @@ class KBLManager {
             ; AlwaysRecorveToDefault 时，自动恢复到默认状态，并解除大写锁定
             if (_processState.AlwaysRecorveToDefault) {
                 capslockState := _processState.CurrentLayout.CapsLockState
-                _processState.RecoverToDefualt()
+                _processState.RecoverToDefualtValue()
                 KBLTool.SetKBL(hWnd, _processState.CurrentLayout.Name, _processState.CurrentLayout.State, GlobalSetting.Lag)
                 if (GlobalSetting.CleanCapsOnRecovered)
                     SetCapsLockState("Off")
@@ -196,9 +196,9 @@ class KBLManager {
 
         KBLManager.runningProcess.Delete(key)
 
-        ; 非进程独立模式下不要去做任何复原与删除
+        ; 全局模式只需要清除前面的 runningProcess 即可，不要去复原或删除 ProcessStates
         ; 未开启退出清理也不要做任何处理
-        if (!GlobalSetting.StandAlong || !GlobalSetting.CleanOnProcessExit)
+        if (!GlobalSetting.CleanOnProcessExit)
             return
 
         ; 查询配置里有没有默认配置，有则还原，无则删除
