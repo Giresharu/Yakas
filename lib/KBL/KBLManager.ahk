@@ -57,19 +57,18 @@ class KBLManager {
             throw WinGetTitle(hWnd) " processState's result is number: " result " in " mode " mode!"
         }
 
-        ; TODO 可能会有 BUG
         startTick := A_TickCount
         while (true) {
             state := GetKeyState("CapsLock", "T")
-            if state != processState.CapsLockState
+            if state != processState.CurrentLayout.CapsLockState
                 break
             Sleep(1000 / 60)
             if (A_TickCount - startTick > 500)
                 break
         }
 
-        if (processState.CapsLockState != state) {
-            processState.CapsLockState := state
+        if (processState.CurrentLayout.CapsLockState != state) {
+            processState.CurrentLayout.CapsLockState := state
             ToolTipPlus(processState.CurrentLayout.Name, processState.CurrentLayout.State, state)
         }
 
@@ -101,34 +100,40 @@ class KBLManager {
         if (!KBLManager.GetWinProperties(hWnd, &winTitle, &path, &name))
             return
 
-        result := KBLManager.FindProcessStateIfRunningProcess(hWnd, winTitle, path, name, &processState)
+        result := KBLManager.FindProcessStateIfRunningProcess(hWnd, winTitle, path, name, &_processState)
         if (result) {
-            ; 如果 processState 没有变化，则不做任何处理
-            if (name != "explorer.exe" && processState == KBLManager.PreviousState)
+            ; 如果 processState 没有变化，则不做任何处理, 资源管理器是例外
+            if (name != "explorer.exe" && _processState == KBLManager.PreviousState)
                 return
 
+            if (KBLManager.PreviousState != "") {
+                temp := KBLManager.PreviousState.CurrentLayout.Clone()
+                previousState := ProcessState("Temp", 0, 0, 0)
+                previousState.CurrentLayout := temp
+            }
+
             ; AlwaysRecorveToDefault 时，自动恢复到默认状态，并解除大写锁定
-            if (processState.AlwaysRecorveToDefault) {
-                capslockState := processState.CapsLockState
-                processState.RecoverToDefualt()
-                KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State, GlobalSetting.Lag)
+            if (_processState.AlwaysRecorveToDefault) {
+                capslockState := _processState.CurrentLayout.CapsLockState
+                _processState.RecoverToDefualt()
+                KBLTool.SetKBL(hWnd, _processState.CurrentLayout.Name, _processState.CurrentLayout.State, GlobalSetting.Lag)
                 if (GlobalSetting.CleanCapsOnRecovered)
                     SetCapsLockState("Off")
                 else {
                     SetCapsLockState(capslockState ? "On" : "Off")
-                    processState.CapsLockState := capslockState
+                    _processState.CurrentLayout.CapsLockState := capslockState
                 }
 
             } else {
-                KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State, GlobalSetting.Lag)
-                SetCapsLockState(processState.CapsLockState ? "On" : "Off")
+                KBLTool.SetKBL(hWnd, _processState.CurrentLayout.Name, _processState.CurrentLayout.State, GlobalSetting.Lag)
+                SetCapsLockState(_processState.CurrentLayout.CapsLockState ? "On" : "Off")
             }
             ; 当 CapsLock 与 KBL 有其一发生变化时，显示 ToolTip
             if (KBLManager.PreviousState != "") {
-                if (!processState.CompareStateWith(KBLManager.PreviousState))
-                    ToolTipPlus(processState.CurrentLayout.Name, processState.CurrentLayout.State, processState.CapsLockState)
+                if (!_processState.CompareStateWith(previousState))
+                    ToolTipPlus(_processState.CurrentLayout.Name, _processState.CurrentLayout.State, _processState.CurrentLayout.CapsLockState)
             }
-            KBLManager.PreviousState := processState
+            KBLManager.PreviousState := _processState
             return
         }
 
@@ -149,14 +154,16 @@ class KBLManager {
         }
 
         if (!GlobalSetting.StandAlong) {
-            ; 只要是全局模式，把 CurrentLayer 设为 Global 的引用，从此修改该进程的 CurrentLayer 就会影响全局的 CurrentLayer
+            ; 只要是全局模式，把 CurrentLayout 设为 Global 的引用，从此修改该进程的 CurrentLayout 就会影响全局的 CurrentLayout
             _processState.CurrentLayout := KBLManager.GlobalState.CurrentLayout
             ; 如果之前就有进程状态，则用之前的状态的键盘覆盖当前键盘的值（用于首次打开切换键盘）
             if (result) {
-                ; 为了防止这里修改导致刚还是全局状态的 PreviousState.CurrentLayer 被修改，使得后面没法比较，这里先新建一个假的 PreviousState，存储当前的 CurrentLayer
-                temp := KBLManager.PreviousState.CurrentLayout.Clone()
-                KBLManager.PreviousState := ProcessState("Temp", 0, 0, 0)
-                KBLManager.PreviousState.CurrentLayout := temp
+                ; 为了防止这里修改导致刚还是全局状态的 PreviousState.CurrentLayout 被修改，使得后面没法比较，这里先新建一个假的 PreviousState，存储当前的 CurrentLayout
+                if (KBLManager.PreviousState != "") {
+                    temp := KBLManager.PreviousState.CurrentLayout.Clone()
+                    KBLManager.PreviousState := ProcessState("Temp", 0, 0, 0)
+                    KBLManager.PreviousState.CurrentLayout := temp
+                }
                 _processState.CurrentLayout.Set(kbl.Name, kbl.State)
             }
         }
@@ -169,10 +176,10 @@ class KBLManager {
         KBLManager.runningProcess[key].AddRegEx(winTitle, regex)
 
         KBLTool.SetKBL(hWnd, kbl.Name, kbl.State, GlobalSetting.Lag)
-        SetCapsLockState(_processState.CapsLockState ? "On" : "Off")
+        SetCapsLockState(_processState.CurrentLayout.CapsLockState ? "On" : "Off")
 
         if (KBLManager.PreviousState == "" || !_processState.CompareStateWith(KBLManager.PreviousState)) {
-            ToolTipPlus(_processState.CurrentLayout.Name, _processState.CurrentLayout.State, _processState.CapsLockState)
+            ToolTipPlus(_processState.CurrentLayout.Name, _processState.CurrentLayout.State, _processState.CurrentLayout.CapsLockState)
         }
         KBLManager.PreviousState := _processState
 
@@ -298,8 +305,8 @@ class KBLManager {
 
         result := KBLManager.TryGetProcessState(name, path, &processState)
 
-        if (processState.PrevioursSwitch == hotkey) {
-            index := processState.PrevioursSwitchIndex
+        if (processState.CurrentLayout.PrevioursSwitch == hotkey) {
+            index := processState.CurrentLayout.PrevioursSwitchIndex
             expectedKbl := processState.CurrentLayout
         } else
             index := KBLManager.FindSimilarKBL(SwitchSetting.Layouts, hWnd)
@@ -313,11 +320,11 @@ class KBLManager {
         KBLTool.SetKBL(hWnd, kbl, state, GlobalSetting.Lag)
 
         if (GlobalSetting.CleanCapsOnSwitched) {
-            processState.CapsLockState := 0
+            processState.CurrentLayout.CapsLockState := 0
             SetCapsLockState("Off")
         }
 
-        ToolTipPlus(kbl, state, processState.CapsLockState)
+        ToolTipPlus(kbl, state, processState.CurrentLayout.CapsLockState)
     }
 
     static FindSimilarKBL(layouts, hWnd) {
