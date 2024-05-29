@@ -1,10 +1,10 @@
 # Yet Another KBL Auto Switch
 
-<a href="https://github.com/Giresharu/YetAnotherKBLAutoSwitch/releases/latest">
-<img src="https://img.shields.io/github/v/release/Giresharu/YetAnotherKBLAutoSwitch?logo=github" />
+<a href="https://github.com/Giresharu/Yakas/releases/latest">
+<img src="https://img.shields.io/github/v/release/Giresharu/Yakas?logo=github" />
 </a>
 <a href="./LICENSE.md">
-<img src="https://custom-icon-badges.demolab.com/github/license/Giresharu/YetAnotherKBLAutoSwitch?logo=law" />
+<img src="https://custom-icon-badges.demolab.com/github/license/Giresharu/Yakas?logo=law" />
 </a>
 
 
