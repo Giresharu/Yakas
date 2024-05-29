@@ -111,4 +111,9 @@ class Util {
         }
         return matches.Length > 0
     }
+
+    static SetStartUp() {
+        exe := A_WorkingDir "\Yakas.exe"
+        FileCreateShortcut(exe, A_AppData "\Microsoft\Windows\Start Menu\Programs\Startup\Yakas.lnk")
+    }
 }

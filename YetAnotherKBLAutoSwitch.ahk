@@ -2,6 +2,9 @@
 ; Ver 0.0.1a
 
 #Requires AutoHotkey v2.0
+#Include lib\Util\RunTask.ahk
+RunAsTask()
+
 #SingleInstance Force
 
 #Include lib\Setting\GlobalSetting.ahk
@@ -13,6 +16,8 @@
 #Include lib\KBL\KBLManager.ahk
 #Include lib\Util\WinEvent.ahk
 #Include lib\Gui\ToolTip.ahk
+
+Util.SetStartUp()
 
 iniFile := "setting.ini"
 languageCodeFile := "languageCode"
@@ -34,7 +39,6 @@ A_TrayMenu.Add("打开 Window Spy", (n, p, m) => Run(A_ScriptDir "\Window Spy.ex
 A_TrayMenu.Add("退出", (n, p, m) => ExitApp())
 
 Return
-
 
 OnExitApp(exitReason, exitCode) {
     for i, callback in onExitCallbacks {
