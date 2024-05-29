@@ -1,5 +1,5 @@
 ; YetAnotherKBLAutoSwitch
-; Ver 0.0.1a
+; Ver 0.0.2a
 
 #Requires AutoHotkey v2.0
 #Include lib\Util\RunTask.ahk

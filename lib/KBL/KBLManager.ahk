@@ -28,9 +28,9 @@ class KBLManager {
             key := s.Key
             condition := s.Condition
 
-            HotkeyPlus("~" key, (k) => KBLManager.NextKBL(k), condition.NeedRelease, condition.HoldTime, condition.ReverseHold, , "B2T5")
+            HotkeyPlus("~" key, (k) => KBLManager.NextKBL(k), condition.NeedRelease, condition.HoldTime, condition.ReverseHold, , "B2T10")
         }
-        HotKey("~CapsLock", (_) => KBLManager.OnCapsLockToggled(), "B2T5")
+        HotKey("~CapsLock", (_) => KBLManager.OnCapsLockToggled(), "B2T10")
     }
 
     static CapsLockHolding := 0
@@ -296,8 +296,6 @@ class KBLManager {
         hWnd := Util.WinGetID("A")
 
         if (WinActive("ahk_class Shell_TrayWnd ahk_exe explorer.exe")) {
-            ToolTip("因为消息限制，无法在聚焦任务栏时切换键盘。")
-            SetTimer(ToolTip, 1000)
             return
         }
 
@@ -307,6 +305,18 @@ class KBLManager {
         name := WinGetProcessName(hWnd)
 
         result := KBLManager.TryGetProcessState(name, path, &processState)
+
+        ; 漏网之鱼
+        if (!result) {
+            SetTimer(KBLManager.OnNewProcessDetected(path, name, hWnd), -1)
+            loop {
+                Sleep(1000 / 24)
+                result := KBLManager.TryGetProcessState(name, path, &processState)
+                if (result)
+                    break
+            }
+        }
+
 
         if (processState.CurrentLayout.PrevioursSwitch == hotkey) {
             index := processState.CurrentLayout.PrevioursSwitchIndex
@@ -331,20 +341,23 @@ class KBLManager {
     }
 
     static FindSimilarKBL(layouts, hWnd) {
-        kbl := KBLTool.GetCurrentKBL(hWnd)
-        name := kbl.Name
-        state := kbl.State
+        try {
+            kbl := KBLTool.GetCurrentKBL(hWnd)
+            name := kbl.Name
+            state := kbl.State
 
-        mostSimilar := 1
-        for i, layout in layouts {
-            if layout.Name == name {
-                if (mostSimilar == 1)
-                    mostSimilar := i
-                if (state == layout.DefaultState)
-                    return i
+            mostSimilar := 1
+            for i, layout in layouts {
+                if layout.Name == name {
+                    if (mostSimilar == 1)
+                        mostSimilar := i
+                    if (state == layout.DefaultState)
+                        return i
+                }
             }
+            return mostSimilar
         }
-        return mostSimilar
+        return 1
     }
 
 }

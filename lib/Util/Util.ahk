@@ -9,6 +9,9 @@ class Util {
     }
 
     static FixUWPWinID(hWnd, timeout := 5000) {
+        while (!WinExist(hWnd))
+            Sleep(1000 / 24)
+        
         if WinGetProcessName(hWnd) == "ApplicationFrameHost.exe" {
             TrueWindow := 0
             ; 因为加载速度的原因，ApplicationFrameHost 加载出来的时候，它的子窗口还没有完全加载出来，所以这里需要循环等待子窗口加载完成
@@ -25,6 +28,7 @@ class Util {
         }
 
         return hWnd
+
 
         EnumChildWindows(hwnd) {
             if WinGetProcessName(hwnd) != "ApplicationFrameHost.exe" {
