@@ -165,6 +165,9 @@ class KBLManager {
                     KBLManager.PreviousState.CurrentLayout := temp
                 }
                 _processState.CurrentLayout.Set(kbl.Name, kbl.State)
+                if (GlobalSetting.CleanCapsOnRecovered) {
+                    _processState.CurrentLayout.CapsLockState := 0
+                }
             }
         }
 
