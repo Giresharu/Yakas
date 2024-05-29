@@ -7,35 +7,6 @@
  * @param H Value is set to the height of the caret
  */
 GetCaretPos(&X?, &Y?, &W?, &H?) {
-    /*
-    	This implementation prefers CaretGetPos > Acc > UIA. This is mostly due to speed differences
-    	between the methods and statistically it seems more likely that the UIA method is required the
-    	least (Chromium apps support Acc as well).
-    */
-    ; Default caret
-    savedCaret := A_CoordModeCaret
-    CoordMode "Caret", "Screen"
-    CaretGetPos(&X, &Y)
-    CoordMode "Caret", savedCaret
-    if IsInteger(X) && (X | Y) != 0 {
-        W := 4, H := 20
-        return
-    }
-
-    ; Acc caret
-    static _ := DllCall("LoadLibrary", "Str", "oleacc", "Ptr")
-    try {
-        idObject := 0xFFFFFFF8 ; OBJID_CARET
-        if DllCall("oleacc\AccessibleObjectFromWindow", "ptr", WinExist("A"), "uint", idObject &= 0xFFFFFFFF
-            , "ptr", -16 + NumPut("int64", idObject == 0xFFFFFFF0 ? 0x46000000000000C0 : 0x719B3800AA000C81, NumPut("int64", idObject == 0xFFFFFFF0 ? 0x0000000000020400 : 0x11CF3C3D618736E0, IID := Buffer(16)))
-            , "ptr*", oAcc := ComValue(9, 0)) = 0 {
-            x := Buffer(4), y := Buffer(4), w := Buffer(4), h := Buffer(4)
-            oAcc.accLocation(ComValue(0x4003, x.ptr, 1), ComValue(0x4003, y.ptr, 1), ComValue(0x4003, w.ptr, 1), ComValue(0x4003, h.ptr, 1), 0)
-            X := NumGet(x, 0, "int"), Y := NumGet(y, 0, "int"), W := NumGet(w, 0, "int"), H := NumGet(h, 0, "int")
-            if (X | Y) != 0
-                return
-        }
-    }
 
     ; UIA caret
     static IUIA := ComObject("{e22ad333-b25f-460c-83d0-0581107395c9}", "{34723aff-0c9d-49d0-9896-7ab52df8cd8a}")
@@ -69,5 +40,35 @@ GetCaretPos(&X?, &Y?, &W?, &H?) {
                 return
             }
         }
+    }
+
+    ; Acc caret
+    static _ := DllCall("LoadLibrary", "Str", "oleacc", "Ptr")
+    try {
+        idObject := 0xFFFFFFF8 ; OBJID_CARET
+        if DllCall("oleacc\AccessibleObjectFromWindow", "ptr", WinExist("A"), "uint", idObject &= 0xFFFFFFFF
+            , "ptr", -16 + NumPut("int64", idObject == 0xFFFFFFF0 ? 0x46000000000000C0 : 0x719B3800AA000C81, NumPut("int64", idObject == 0xFFFFFFF0 ? 0x0000000000020400 : 0x11CF3C3D618736E0, IID := Buffer(16)))
+            , "ptr*", oAcc := ComValue(9, 0)) = 0 {
+            x := Buffer(4), y := Buffer(4), w := Buffer(4), h := Buffer(4)
+            oAcc.accLocation(ComValue(0x4003, x.ptr, 1), ComValue(0x4003, y.ptr, 1), ComValue(0x4003, w.ptr, 1), ComValue(0x4003, h.ptr, 1), 0)
+            X := NumGet(x, 0, "int"), Y := NumGet(y, 0, "int"), W := NumGet(w, 0, "int"), H := NumGet(h, 0, "int")
+            if (X | Y) != 0
+                return
+        }
+    }
+
+    /*
+    	This implementation prefers CaretGetPos > Acc > UIA. This is mostly due to speed differences
+    	between the methods and statistically it seems more likely that the UIA method is required the
+    	least (Chromium apps support Acc as well).
+    */
+    ; Default caret
+    savedCaret := A_CoordModeCaret
+    CoordMode "Caret", "Screen"
+    CaretGetPos(&X, &Y)
+    CoordMode "Caret", savedCaret
+    if IsInteger(X) && (X | Y) != 0 {
+        W := 4, H := 20
+        return
     }
 }

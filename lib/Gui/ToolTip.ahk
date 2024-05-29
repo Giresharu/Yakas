@@ -40,7 +40,7 @@ ToolTipPlus(kbl, state, capslock) {
     GetCaretPos(&x, &y)
     ; WinGetPos(&wx, &wy, &ww, &wh, "A")
     ; 没有输入控件的话则取鼠标位置
-    if (x == 0 && y == 0) {
+    if (x == 0 || x == "") {
         temp := A_CoordModeMouse
         A_CoordModeMouse := "Screen"
         MouseGetPos(&x, &y)
@@ -103,7 +103,7 @@ ToolTipPlus(kbl, state, capslock) {
         if (FileExist(path)) {
             TraySetIcon(path)
         }
-  
+
     }
 
 }

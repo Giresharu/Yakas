@@ -293,7 +293,7 @@ class KBLManager {
         hWnd := Util.WinGetID("A")
 
         if (WinActive("ahk_class Shell_TrayWnd ahk_exe explorer.exe")) {
-            ToolTip("因为 WM_INPUTLANGUAGECHANGEQUEST 的限制，无法在聚焦任务栏时切换键盘。")
+            ToolTip("因为消息限制，无法在聚焦任务栏时切换键盘。")
             SetTimer(ToolTip, 1000)
             return
         }
