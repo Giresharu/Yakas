@@ -7,7 +7,8 @@ class KBLTool {
     static ImmGetDefaultIMEWnd := DllCall("GetProcAddress", "Ptr", DllCall("LoadLibrary", "Str", "imm32", "Ptr"), "AStr", "ImmGetDefaultIMEWnd", "Ptr") ; 获取 ImmGetDefaultIMEWnd 函数的指针
     static GetWindowThreadProcessId := DllCall("GetProcAddress", "Ptr", DllCall("LoadLibrary", "Str", "User32", "Ptr"), "AStr", "GetWindowThreadProcessId", "Ptr")
     static GetKeyboardLayout := DllCall("GetProcAddress", "Ptr", DllCall("LoadLibrary", "Str", "User32", "Ptr"), "AStr", "GetKeyboardLayout", "Ptr")
-    static imm32 := DllCall("LoadLibrary", "Str", "imm32.dll", "Ptr")
+    static GetUIThreadInfo := DllCall("GetProcAddress", "Ptr", DllCall("LoadLibrary", "Str", "User32", "Ptr"), "AStr", "GetGUIThreadInfo", "Ptr")
+    static SendMessage := DllCall("GetProcAddress", "Ptr", DllCall("LoadLibrary", "Str", "User32", "Ptr"), "AStr", "SendMessage", "Ptr")
 
     static Initialize() {
         KBLTool.KBLCodes := KBLTool.GetAllKBLs()
@@ -32,14 +33,14 @@ class KBLTool {
             }
         }
 
-        ; 提示未知键盘
-        ; if (errorCodes.Length > 0) {
-        ;     str := ""
-        ;     for code in errorCodes {
-        ;         str := str "`n" code
-        ;     }
-        ;     ToolTip("`n注册表 HKEY_CURRENT_USER\Keyboard Layout\Preload 中包含未知的键盘布局代码:" str " `n请将此错误提交至仓库 Issue。`n程序将在无视此键盘布局的情况下运行。", "未知的键盘布局代码", 32)
-        ; }
+        /*         ; 提示未知键盘
+                ; if (errorCodes.Length > 0) {
+                ;     str := ""
+                ;     for code in errorCodes {
+                ;         str := str "`n" code
+                ;     }
+                ;     ToolTip("`n注册表 HKEY_CURRENT_USER\Keyboard Layout\Preload 中包含未知的键盘布局代码:" str " `n请将此错误提交至仓库 Issue。`n程序将在无视此键盘布局的情况下运行。", "未知的键盘布局代码", 32)
+        ; } */
         return kblCodes
     }
 
@@ -50,16 +51,16 @@ class KBLTool {
         threadId := DllCall(KBLTool.GetWindowThreadProcessId, "Ptr", hWnd, "Uint", 0)
         kbl := DllCall(KBLTool.GetKeyboardLayout, "Uint", threadId, "UInt")
 
-        if (WinActive(hWnd)) {
+        if (WinExist(hWnd)) {
             ptrSize := !A_PtrSize ? 4 : A_PtrSize
             cbSize := 4 + 4 + (PtrSize * 6) + 16	; DWORD*2+HWND*6+RECT
             stGTI := Buffer(cbSize, 0)
             NumPut("UInt", cbSize, stGTI.Ptr, 0)   ;   DWORD   cbSize;
-            hWnd := DllCall("GetGUIThreadInfo", "Uint", 0, "Uint", stGTI.Ptr)
+            hWnd := DllCall(KBLTool.GetUIThreadInfo, "Uint", 0, "Uint", stGTI.Ptr)
                 ? NumGet(stGTI.Ptr, 8 + PtrSize, "Uint") : hwnd
         }
 
-        state := SendMessage(0x283, 0x001, , , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd))
+        state := SendMessage(0x283, 0x001, , , DllCall(KBLTool.ImmGetDefaultIMEWnd, "Uint", hwnd))
 
 
         A_DetectHiddenWindows := temp
@@ -70,66 +71,68 @@ class KBLTool {
     static LangIdToName(langId) =>
         KBLTool.%"_" langId%
 
-    static SetKBLing := false
     ; 设置键盘布局
     static SetKBL(hWnd, language, state := 0, lag := 50) {
-        if (KBLTool.SetKBLing) {
-            return
-        }
-        KBLTool.SetKBLing := true
-        try {
-            code := KBLTool.KBLCodes[language]
-            code := "0x" code code
-        } catch Error as e {
-            MsgBox("未发现键盘布局" language " , 本机上似乎没有这个语言的键盘布局。", "未发现键盘布局", 16)
-            throw e
-        }
-        temp := A_DetectHiddenWindows
-        A_DetectHiddenWindows := true
         Thread "NoTimers"
-        try {
-            ; 自动上屏
-            if (WinExist("ahk_group AutoSendString")) {
-                SendInput("{Enter}")
+        loop {
+            windowHWnd := hWnd
+
+            try {
+                code := KBLTool.KBLCodes[language]
+                code := "0x" code code
+            } catch Error as e {
+                MsgBox("未发现键盘布局" language " , 本机上似乎没有这个语言的键盘布局。", "未发现键盘布局", 16)
+                throw e
+            }
+            temp := A_DetectHiddenWindows
+            A_DetectHiddenWindows := true
+            try {
+                ; 自动上屏
+                if (WinExist("ahk_group AutoSendString")) {
+                    SendInput("{Enter}")
+                }
+
+                if (WinExist(hWnd)) {
+                    ptrSize := !A_PtrSize ? 4 : A_PtrSize
+                    cbSize := 4 + 4 + (PtrSize * 6) + 16	; DWORD*2+HWND*6+RECT
+                    stGTI := Buffer(cbSize, 0)
+                    NumPut("UInt", cbSize, stGTI.Ptr, 0)   ;   DWORD   cbSize;
+                    hWnd := DllCall(KBLTool.GetUIThreadInfo, "Uint", 0, "Uint", stGTI.Ptr)
+                        ? NumGet(stGTI.Ptr, 8 + PtrSize, "Uint") : hwnd
+                }
+
+                imeWnd := DllCall(KBLTool.ImmGetDefaultIMEWnd, "Uint", hWnd)
+
+                SendMessage(0x50, , code, , imeWnd, 1000)
+                Sleep(lag)
+
+                ; 这俩不用 DllCall 来调用的话，需要 Sleep 更久才可以真的改变输入法状态，非常的神奇
+                ; 我突然理解了，这 tm 是因为 DllCall 更慢吧！
+                DllCall("SendMessage"
+                    , "UInt", imeWnd
+                    , "UInt", 0x0283      ;Message : WM_IME_CONTROL
+                    , "Int", 0x002       ;wParam  : IMC_SETCONVERSIONMODE
+                    , "Int", state)   ;lParam  : CONVERSIONMODE
+                DllCall("SendMessage"
+                    , "UInt", imeWnd
+                    , "UInt", 0x0283      ;Message : WM_IME_CONTROL
+                    , "Int", 0x006       ;wParam  : IMC_SETCONVERSIONMODE
+                    , "Int", 1)   ;lParam  : CONVERSIONMODE
+
+                ; SendMessage(0x283, 0x6, 1, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd))
+                ; SendMessage(0x283, 0x2, state, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd))
             }
 
-            if (WinActive(hWnd)) {
-                ptrSize := !A_PtrSize ? 4 : A_PtrSize
-                cbSize := 4 + 4 + (PtrSize * 6) + 16	; DWORD*2+HWND*6+RECT
-                stGTI := Buffer(cbSize, 0)
-                NumPut("UInt", cbSize, stGTI.Ptr, 0)   ;   DWORD   cbSize;
-                hWnd := DllCall("GetGUIThreadInfo", "Uint", 0, "Uint", stGTI.Ptr)
-                    ? NumGet(stGTI.Ptr, 8 + PtrSize, "Uint") : hwnd
-            }
+            A_DetectHiddenWindows := temp
 
-            ; DllCall("SendMessage"
-            ;     , "UInt", DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd)
-            ;     , "UInt", 0x50
-            ;     , "Int", 0
-            ;     , "Int", code)
-            SendMessage(0x50, , code, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd), 100)
+            ; 判断是否切换成功
+            kbl := KBLTool.GetCurrentKBL(windowHWnd)
+            if (kbl.name != language || kbl.state != state)
+                continue
 
-            Sleep(lag)
-
-            ; 这俩不用 DllCall 来调用的话，需要 Sleep 更久才可以真的改变输入法状态，非常的神奇
-            DllCall("SendMessage"
-                , "UInt", DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd)
-                , "UInt", 0x0283      ;Message : WM_IME_CONTROL
-                , "Int", 0x002       ;wParam  : IMC_SETCONVERSIONMODE
-                , "Int", state)   ;lParam  : CONVERSIONMODE
-            DllCall("SendMessage"
-                , "UInt", DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd)
-                , "UInt", 0x0283      ;Message : WM_IME_CONTROL
-                , "Int", 0x006       ;wParam  : IMC_SETCONVERSIONMODE
-                , "Int", 1)   ;lParam  : CONVERSIONMODE
-
-            ; SendMessage(0x283, 0x6, 1, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd))
-            ; SendMessage(0x283, 0x2, state, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd))
+            break
         }
         Thread "NoTimers", false
-        A_DetectHiddenWindows := temp
-        KBLTool.SetKBLing := false
-
     }
 
     static _0036 := "af"

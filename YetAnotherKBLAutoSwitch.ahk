@@ -1,4 +1,4 @@
-; YetAnotherKBLAutoSwitch 
+; YetAnotherKBLAutoSwitch
 ; Ver 1.0.0
 
 #Requires AutoHotkey v2.0
@@ -18,6 +18,9 @@ iniFile := "setting.ini"
 languageCodeFile := "languageCode"
 FileEncoding("UTF-8")
 
+global onExitCallbacks := Array()
+OnExit OnExitApp
+
 GlobalSetting.Initialize(iniFile)
 KBLSwitchSetting.Initialize(iniFile)
 ProcessSetting.Initialize(iniFile)
@@ -31,3 +34,10 @@ A_TrayMenu.Add("打开 Window Spy", (n, p, m) => Run(A_ScriptDir "\Window Spy.ex
 A_TrayMenu.Add("退出", (n, p, m) => ExitApp())
 
 Return
+
+
+OnExitApp(exitReason, exitCode) {
+    for i, callback in onExitCallbacks {
+        callback.Call(exitReason, exitCode)
+    }
+}

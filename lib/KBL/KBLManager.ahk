@@ -104,11 +104,11 @@ class KBLManager {
         result := KBLManager.FindProcessStateIfRunningProcess(hWnd, winTitle, path, name, &processState)
         if (result) {
             ; 如果 processState 没有变化，则不做任何处理
-            if (processState == KBLManager.PreviousState)
+            if (name != "explorer.exe" && processState == KBLManager.PreviousState)
                 return
 
-            ; 当 processState 存在且 AlwaysRecorveToDefault 时，自动恢复到默认状态，并解除大写锁定
-            if (result != 1 && processState.AlwaysRecorveToDefault) {
+            ; AlwaysRecorveToDefault 时，自动恢复到默认状态，并解除大写锁定
+            if (processState.AlwaysRecorveToDefault) {
                 capslockState := processState.CapsLockState
                 processState.RecoverToDefualt()
                 KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State, GlobalSetting.Lag)
@@ -120,9 +120,6 @@ class KBLManager {
                 }
 
             } else {
-                ; 否则恢复到记录的状态
-                processState := GlobalSetting.StandAlong ? processState : KBLManager.GlobalState
-
                 KBLTool.SetKBL(hWnd, processState.CurrentLayout.Name, processState.CurrentLayout.State, GlobalSetting.Lag)
                 SetCapsLockState(processState.CapsLockState ? "On" : "Off")
             }
@@ -140,40 +137,33 @@ class KBLManager {
 
 
     static OnNewProcessDetected(path, name, hWnd) {
-        ; 如果不是 ini 里预先配置的以名字作为 key 的进程，一定是以路径作为 key 的
-        ; 非进程独立键盘模式下，不要为未配置进程创建状态记录，如果不存在记录，则使用全局配置
-
-        ; result := KBLManager.TryGetProcessState(path, name, &processState)
-        ; regex := ""
-        ; if (!result) {
-        ;     key := path
-        ;     processState := KBLManager.GlobalState
-        ; } else {
-        ;     key := result == 1 ? path : name
-        ;     KBLManager.TryGetWindowState(processState, WinGetTitle(hWnd), &processState, &regex)
-        ; }
-        ; kbl := processState.CurrentLayout
-
         winTitle := WinGetTitle(hWnd)
         result := KBLManager.TryGetWindowOrProcessState(path, name, winTitle, &_processState, &regex := "")
         ; 不论结果是 0 还是 1 ，key 都一定是路径
         key := result != 2 ? path : name
         kbl := result ? _processState.CurrentLayout : 0
 
+        ; 如果不存在进程状态，则新建一个
+        if (!result) {
+            KBLManager.ProcessStates[key] := _processState := ProcessState(key, GlobalSetting.DefualtKBL.Name, GlobalSetting.DefualtKBL.State, false)
+        }
+
         if (!GlobalSetting.StandAlong) {
-            ; 如果没有该配置，或者该配置并不总是恢复到默认键盘，则使用全局键盘来管理
-            if (!result || !_processState.AlwaysRecorveToDefault) {
-                _processState := KBLManager.GlobalState
-                if (result)
-                    _processState.CurrentLayout.Set(kbl.Name, kbl.State)
-            }
-        } else {
-            if (!result) {
-                KBLManager.ProcessStates[key] := _processState := ProcessState(key, "en-US", 0, false)
+            ; 只要是全局模式，把 CurrentLayer 设为 Global 的引用，从此修改该进程的 CurrentLayer 就会影响全局的 CurrentLayer
+            _processState.CurrentLayout := KBLManager.GlobalState.CurrentLayout
+            ; 如果之前就有进程状态，则用之前的状态的键盘覆盖当前键盘的值（用于首次打开切换键盘）
+            if (result) {
+                ; 为了防止这里修改导致刚还是全局状态的 PreviousState.CurrentLayer 被修改，使得后面没法比较，这里先新建一个假的 PreviousState，存储当前的 CurrentLayer
+                temp := KBLManager.PreviousState.CurrentLayout.Clone()
+                KBLManager.PreviousState := ProcessState("Temp", 0, 0, 0)
+                KBLManager.PreviousState.CurrentLayout := temp
+                _processState.CurrentLayout.Set(kbl.Name, kbl.State)
             }
         }
+
         kbl := _processState.CurrentLayout
 
+        ; 在运行列表中记录 PID，并记录窗口标题及其对应的正则表达式
         if (!KBLManager.runningProcess.Has(key))
             KBLManager.runningProcess[key] := RunningProcessInfo(WinGetPID(hWnd))
         KBLManager.runningProcess[key].AddRegEx(winTitle, regex)
@@ -184,7 +174,6 @@ class KBLManager {
         if (KBLManager.PreviousState == "" || !_processState.CompareStateWith(KBLManager.PreviousState)) {
             ToolTipPlus(_processState.CurrentLayout.Name, _processState.CurrentLayout.State, _processState.CapsLockState)
         }
-
         KBLManager.PreviousState := _processState
 
         ProcessWaitClose(KBLManager.runningProcess[key].PID)
@@ -265,10 +254,6 @@ class KBLManager {
         } else if (key2 != "" && KBLManager.ProcessStates.Has(key2)) {
             key := key2
             result := 2
-            ; } else if (needCreate) {
-            ;     key := key1
-            ;     KBLManager.ProcessStates[key] := ProcessState(key, "en-US", 0, false)
-            ;     result := 1
         } else {
             return 0
         }
@@ -299,23 +284,23 @@ class KBLManager {
 
     static NextKBL(hotkey) {
         hWnd := Util.WinGetID("A")
+
+        if (WinActive("ahk_class Shell_TrayWnd ahk_exe explorer.exe")) {
+            ToolTip("因为 WM_INPUTLANGUAGECHANGEQUEST 的限制，无法在聚焦任务栏时切换键盘。")
+            SetTimer(ToolTip, 1000)
+            return
+        }
+
         hotkey := Trim(hotkey, '~')
         SwitchSetting := KBLSwitchSetting[hotkey]
         path := WinGetProcessPath(hWnd)
         name := WinGetProcessName(hWnd)
 
-        ; 非独立进程键盘模式下使用全局状态
         result := KBLManager.TryGetProcessState(name, path, &processState)
-        if (result == 0 || !GlobalSetting.StandAlong)
-            processState := KBLManager.GlobalState
 
         if (processState.PrevioursSwitch == hotkey) {
             index := processState.PrevioursSwitchIndex
             expectedKbl := processState.CurrentLayout
-            kbl := KBLTool.GetCurrentKBL(hWnd)
-            if (expectedKbl.Name != kbl.Name || expectedKbl.State != kbl.State) {
-                index := KBLManager.FindSimilarKBL(SwitchSetting.Layouts, hWnd)
-            }
         } else
             index := KBLManager.FindSimilarKBL(SwitchSetting.Layouts, hWnd)
 
@@ -326,6 +311,7 @@ class KBLManager {
 
         processState.Update(hotkey, index, kbl, state)
         KBLTool.SetKBL(hWnd, kbl, state, GlobalSetting.Lag)
+
         if (GlobalSetting.CleanCapsOnSwitched) {
             processState.CapsLockState := 0
             SetCapsLockState("Off")

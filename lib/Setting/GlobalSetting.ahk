@@ -17,7 +17,8 @@ class GlobalSetting {
     }
 
     static FromINI(iniFile) {
-        GlobalSetting.StandAlong := Util.INIRead(iniFile, "GlobalSetting", "StandAlong", "true") == "true"
+        ; GlobalSetting.StandAlong := Util.INIRead(iniFile, "GlobalSetting", "StandAlong", "true") == "true"
+        GlobalSetting.InitializeStandAlong()
         GlobalSetting.CleanOnProcessExit := Util.INIRead(iniFile, "GlobalSetting", "CleanOnProcessExit", "true") == "true"
 
         GlobalSetting.DefualtKBL := Util.INIRead(iniFile, "GlobalSetting", "DefualtKBL", "en-US: 0")
@@ -30,5 +31,42 @@ class GlobalSetting {
         GlobalSetting.CleanCapsOnSwitched := Util.INIRead(iniFile, "GlobalSetting", "CleanCapsOnSwitched", "true") == "true"
         GlobalSetting.CleanCapsOnProcessChanged := Util.INIRead(iniFile, "GlobalSetting", "CleanCapsOnProcessChanged", "true") == "true"
         GlobalSetting.CleanCapsOnRecovered := Util.INIRead(iniFile, "GlobalSetting", "CleanCapsOnRecovered", "true") == "true"
+    }
+
+    ; 存储用户本来的设置，在退出时恢复
+    static InitializeStandAlong() {
+        GlobalSetting.StandAlong := Util.INIRead(iniFile, "GlobalSetting", "StandAlong", "true") == "true"
+        temp := GlobalSetting.GetStandAlongInSystem()
+        GlobalSetting.SetStandAlongInSystem(true)
+        global onExitCallbacks
+
+        onExitCallbacks.Push((a, b) => GlobalSetting.SetStandAlongInSystem(temp))
+    }
+
+    static SPI_GETTHREADLOCALINPUTSETTINGS := 0x104E
+    static GetStandAlongInSystem() {
+        pvParam := Buffer(4)
+        DllCall("SystemParametersInfoW",
+            "UInt", GlobalSetting.SPI_GETTHREADLOCALINPUTSETTINGS,
+            "UInt", 0,
+            "Ptr", pvParam,
+            "UInt", 0)
+        result := NumGet(pvParam, 0, "uint")
+
+        VarSetStrCapacity(&pvParam, 0)
+        return result
+    }
+
+    static SPI_SETTHREADLOCALINPUTSETTINGS := 0x104F
+    static SetStandAlongInSystem(value) {
+        pvParam := Buffer(4)
+        NumPut("uint", value, pvParam)
+        DllCall("SystemParametersInfoW",
+            "UInt", GlobalSetting.SPI_SETTHREADLOCALINPUTSETTINGS,
+            "UInt", 0,
+            "Ptr", pvParam,
+            "UInt", 0
+        )
+        VarSetStrCapacity(&pvParam, 0)
     }
 }

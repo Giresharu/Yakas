@@ -3,6 +3,7 @@
 class ProcessState {
     WindowStates := 0
 
+    ; TODO 除了 CurrentLyaout PrevioursSwitch 和Index 以及 CapsLockState 也应该和 Global绑定 否则会有问题
     __New(title, defualtKBL, defualtState, alwaysRecorveToDefault) {
         this.Title := title
         this.DefualtLayout := KeyboardLayout(defualtKBL, defualtState)
@@ -26,7 +27,7 @@ class ProcessState {
     }
 
     RecoverToDefualt() {
-        this.CurrentLayout := this.DefualtLayout.Clone()
+        this.CurrentLayout.Set(this.DefualtLayout.Name, this.DefualtLayout.State)
         this.PrevioursSwitch := ""
         this.PrevioursSwitchIndex := 0
         this.CapsLockState := 0
