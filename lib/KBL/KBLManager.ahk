@@ -28,9 +28,9 @@ class KBLManager {
             key := s.Key
             condition := s.Condition
 
-            HotkeyPlus("~" key, (k) => KBLManager.NextKBL(k), condition.NeedRelease, condition.HoldTime, condition.ReverseHold)
+            HotkeyPlus("~" key, (k) => KBLManager.NextKBL(k), condition.NeedRelease, condition.HoldTime, condition.ReverseHold, , "B2T5")
         }
-        HotKey("~CapsLock", (_) => KBLManager.OnCapsLockToggled())
+        HotKey("~CapsLock", (_) => KBLManager.OnCapsLockToggled(), "B2T5")
     }
 
     static CapsLockHolding := 0
