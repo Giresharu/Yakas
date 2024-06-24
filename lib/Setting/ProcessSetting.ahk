@@ -3,7 +3,7 @@
 
 class ProcessSetting {
     static ProcessSettings := Map()
-    WindowSettings := 0
+    RegExSettings := 0
 
     __New(title, defaultKBL, alwaysRecorveToDefault) {
         this.Title := title
@@ -30,6 +30,7 @@ class ProcessSetting {
         defaultKBL := KeyboardLayout(defaultKBL[1], defaultKBL[2])
         alwaysRecorveToDefault := value[-1] == "true"
 
+        ; 写窗口正则的情况
         if (value.Length > 3) {
             ;要考虑还没有创建的情况，需要自动创建
             key := name
@@ -44,18 +45,21 @@ class ProcessSetting {
             dic[name] := ProcessSetting(name, defaultKBL, alwaysRecorveToDefault)
     }
 
+    ; 从进程设置的字典中找到正则的子字典
     static FindSettingDic(dic, key, name) {
         if (key != "") {
+            ; 如果进程设置此前不存在，则创建一个
             if (!dic.Has(key))
-                dic[key] := ProcessSetting(key, GlobalSetting.DefualtKBL, false)
+                dic[key] := ProcessSetting(key, 0, false) ; 以 0 表示进程本身没有默认配置，防止打开时自动恢复
             dic := dic[key]
         }
 
-        name := Trim(name, " ")
+        ; name := Trim(name, " ")
 
-        if (name != "") {
-            dic := dic.WindowSettings := (dic.WindowSettings == 0 ? Map() : dic.WindowSettings)
-        }
+        ; if (name != "") {
+        ; 创建正则的子字典
+        dic := dic.RegExSettings := (dic.RegExSettings == 0 ? Map() : dic.RegExSettings)
+        ; }
 
         return dic
     }

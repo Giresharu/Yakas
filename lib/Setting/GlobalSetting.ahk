@@ -18,7 +18,7 @@ class GlobalSetting {
 
     static FromINI(iniFile) {
         ; GlobalSetting.StandAlong := Util.INIRead(iniFile, "GlobalSetting", "StandAlong", "true") == "true"
-        GlobalSetting.InitializeStandAlong()
+        GlobalSetting.InitializeStandAlong(iniFile)
         GlobalSetting.CleanOnProcessExit := Util.INIRead(iniFile, "GlobalSetting", "CleanOnProcessExit", "true") == "true"
 
         GlobalSetting.DefualtKBL := Util.INIRead(iniFile, "GlobalSetting", "DefualtKBL", "en-US: 0")
@@ -34,7 +34,7 @@ class GlobalSetting {
     }
 
     ; 存储用户本来的设置，在退出时恢复
-    static InitializeStandAlong() {
+    static InitializeStandAlong(iniFile) {
         GlobalSetting.StandAlong := Util.INIRead(iniFile, "GlobalSetting", "StandAlong", "true") == "true"
         temp := GlobalSetting.GetStandAlongInSystem()
         GlobalSetting.SetStandAlongInSystem(true)

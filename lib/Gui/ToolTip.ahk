@@ -2,7 +2,7 @@
 #Include ..\Setting\ToolTipSetting.ahk
 #Include ..\Util\GetCaretPos.ahk
 
-ToolTipPlus(kbl, state, capslock) {
+ToolTipPlus(kbl, imeState, capslock) {
     static timer := ""
     static alpha := 255
     static myGui := Gui("-SysMenu +ToolWindow +AlwaysOnTop -Caption -DPIScale +E0x20")
@@ -29,7 +29,7 @@ ToolTipPlus(kbl, state, capslock) {
 
     myGui.BackColor := setting.bgColor
     textControl.SetFont("c" setting.textColor " s" size " " setting.fontStyle " q5", setting.FontFamily)
-    textControl.Text := setting.GetText(state, capslock)
+    textControl.Text := setting.GetText(imeState, capslock)
 
     textControl.GetPos(, , &w, &h)
 
@@ -53,7 +53,7 @@ ToolTipPlus(kbl, state, capslock) {
     x := x - boxSize
     y := y - boxSize
 
-    ;TODO 因为副屏烧了所以暂时没有测试环境，暂时不考虑位置超出屏幕的情况的自动调整
+    ;TODO 因为副屏坏了所以暂时没有测试环境，暂时不考虑位置超出屏幕的情况的自动调整
 
     region := "0-0 W" boxSize " H" boxSize " R" roundSize "-" roundSize
     WinSetTransparent(alpha, myGui.Hwnd)
@@ -86,12 +86,13 @@ ToolTipPlus(kbl, state, capslock) {
         WinSetTransparent(alpha, myGui.hWnd)
     }
 
+    ; TODO 改到单独的 Class 去实现
     ChangeTray() {
         iconPath := A_ScriptDir "\icons\"
         language := kbl "\"
         Caps := (capslock ? "Caps" : "")
 
-        path := iconPath language Caps state ".png"
+        path := iconPath language Caps imeState ".png"
         if (!FileExist(path))
             path := iconPath language Caps ".png"
         if (!FileExist(path))

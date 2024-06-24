@@ -16,7 +16,7 @@ class KBLSwitchSetting {
     }
 
     static __Item[i] => KBLSwitchSetting.KBLSwitchSettings[i]
-    __Item[i] => this.Layouts[i]
+    ; __Item[i] => this.Layouts[i]
 
     static Initialize(iniFile) {
         KBLSwitchSetting.KBLSwitchSettings := KBLSwitchSetting.FromINI(iniFile)
@@ -27,9 +27,9 @@ class KBLSwitchSetting {
     static FromINISection(iniFile, value, dic, _) {
         key := Util.INIRead(iniFile, "KBLSwitch." value, "key", "LShift")
         condition := KBLSwitchSetting.ParseCondition(value, key, Util.INIRead(iniFile, "KBLSwitch." value, "condition", "long_release(500)"))
-        kbls := KBLSwitchSetting.ParseKBLayout(Util.INIRead(iniFile, "KBLSwitch." value, "layouts", "en-US: 0, zh-CN: 1025"))
+        layouts := KBLSwitchSetting.ParseKBLayout(Util.INIRead(iniFile, "KBLSwitch." value, "layouts", "en-US: 0, zh-CN: 1025"))
 
-        dic[key] := KBLSwitchSetting(value, key, condition, kbls)
+        dic[key] := KBLSwitchSetting(value, key, condition, layouts)
     }
 
     static AddToGroup(iniFile, value, dic, _) {
@@ -78,9 +78,9 @@ class KBLSwitchSetting {
             str := StrSplit(A_LoopField, ":", " ")
 
             name := str[1]
-            defualtState := str.Length > 1 ? Integer(str[2]) : 0x0
+            imeState := str.Length > 1 ? Integer(str[2]) : 0x0
 
-            arr.Push(KBLSwitchSetting.Layout(name, defualtState))
+            arr.Push(KBLSwitchSetting.Layout(name, imeState))
         }
         return arr
     }
@@ -96,9 +96,9 @@ class KBLSwitchSetting {
 
     ; 用于存储单个键盘布局设置
     class Layout {
-        __New(name, defaultState) {
+        __New(name, imeState) {
             this.Name := name
-            this.DefaultState := defaultState
+            this.ImeState := imeState
         }
     }
 

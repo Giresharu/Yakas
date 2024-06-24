@@ -1,18 +1,23 @@
 #Include KeyboardLayout.ahk
 
 class ProcessState {
-    WindowStates := 0
+    RegExStates := 0
+    ; RegExWindows := 0
+
 
     __New(title, defualtKBL, defualtState, alwaysRecorveToDefault) {
         this.Title := title
         this.DefualtLayout := KeyboardLayout(defualtKBL, defualtState)
-        this.CurrentLayout := this.DefualtLayout.Clone()
-        this.DefualtLayout.PrevioursSwitch := ""
         this.DefualtLayout.PrevioursSwitchIndex := 0
         this.DefualtLayout.CapsLockState := 0
-
+        this.DefualtLayout.PrevioursSwitch := ""
+        this.CurrentLayout := this.DefualtLayout.Clone()
         this.alwaysRecorveToDefault := alwaysRecorveToDefault
     }
+
+    __Item[winTitle] =>
+        this.RegExStates[this.RegExWindows[winTitle]]
+
 
     Update(key, SwitchIndex, name, state) {
         ; this.PrevioursSwitch := key
@@ -20,16 +25,31 @@ class ProcessState {
         this.CurrentLayout.Set(name, state, key, SwitchIndex)
     }
 
-    AddWindow(state) {
-        if (this.WindowStates == 0)
-            this.WindowStates := Map()
-        this.WindowStates[state.Title] := state
+    AddRegExState(state) {
+        if (this.RegExStates == 0)
+            this.RegExStates := Map()
+        this.RegExStates[state.Title] := state
+    }
+
+    TryGetRegExState(regEx, &state) {
+        ; 如果 regEx 为 0 ，则直接返回该进程的状态
+        if (!regEx) {
+            state := this
+            return true
+        }
+
+        if (this.RegExStates.Has(regEx)) {
+            state := this.RegExStates[regEx]
+            return true
+        }
+        return false
+
     }
 
     RecoverToDefualtValue() {
-        this.CurrentLayout.Set(this.DefualtLayout.Name, this.DefualtLayout.State, "", 0, 0)
+        this.CurrentLayout.Set(this.DefualtLayout.Name, this.DefualtLayout.ImeState, "", 0, 0)
     }
-    
+
     RecoverToDefualt() {
         this.CurrentLayout := this.DefualtLayout.Clone()
     }
@@ -38,7 +58,7 @@ class ProcessState {
     CompareStateWith(otherState, ignoreCapsLock := false) {
         if (this.CurrentLayout.Name != otherState.CurrentLayout.Name)
             return false
-        if (this.CurrentLayout.State != otherState.CurrentLayout.State)
+        if (this.CurrentLayout.ImeState != otherState.CurrentLayout.ImeState)
             return false
         if (ignoreCapsLock == false && this.CurrentLayout.CapsLockState != otherState.CurrentLayout.CapsLockState)
             return false
