@@ -62,22 +62,21 @@ class KBLTool {
                     ? NumGet(stGTI.Ptr, 8 + PtrSize, "Uint") : hwnd
             }
 
-            state := SendMessage(0x283, 0x001, , , DllCall(KBLTool.ImmGetDefaultIMEWnd, "Uint", hwnd))
+            imeState := SendMessage(0x283, 0x001, , , DllCall(KBLTool.ImmGetDefaultIMEWnd, "Uint", hwnd))
         }
         name := KBLTool.LangIdToName(name)
         A_DetectHiddenWindows := temp
-        return KeyboardLayout(name, state)
+        return KeyboardLayout(name, imeState)
     }
 
     static LangIdToName(langId) =>
         KBLTool.%"_" langId%
 
     ; 设置键盘布局
-    static SetKBL(hWnd, language, state := 0, lag := 50) {
+    static SetKBL(hWnd, language, imeState := 0, lag := 50) {
         Thread "NoTimers"
         temp := A_DetectHiddenWindows
         try {
-
             windowHWnd := hWnd
             try {
                 code := KBLTool.KBLCodes[language]
@@ -92,44 +91,38 @@ class KBLTool {
             if (WinExist("ahk_group AutoSendString")) {
                 SendInput("{Enter}")
             }
+            OutputDebug("[SetKBL] 正在为 " windowHWnd " 设置键盘布局。`n")
+            count:= 1
+            loop {
+                if (WinExist(windowHWnd)) {
+                    ptrSize := !A_PtrSize ? 4 : A_PtrSize
+                    cbSize := 4 + 4 + (PtrSize * 6) + 16	; DWORD*2+HWND*6+RECT
+                    stGTI := Buffer(cbSize, 0)
+                    NumPut("UInt", cbSize, stGTI.Ptr, 0)   ;   DWORD   cbSize;
+                    hWnd := DllCall(KBLTool.GetUIThreadInfo, "Uint", 0, "Uint", stGTI.Ptr)
+                        ? NumGet(stGTI.Ptr, 8 + PtrSize, "Uint") : windowHWnd
+                }
 
-            if (WinExist(hWnd)) {
-                ptrSize := !A_PtrSize ? 4 : A_PtrSize
-                cbSize := 4 + 4 + (PtrSize * 6) + 16	; DWORD*2+HWND*6+RECT
-                stGTI := Buffer(cbSize, 0)
-                NumPut("UInt", cbSize, stGTI.Ptr, 0)   ;   DWORD   cbSize;
-                hWnd := DllCall(KBLTool.GetUIThreadInfo, "Uint", 0, "Uint", stGTI.Ptr)
-                    ? NumGet(stGTI.Ptr, 8 + PtrSize, "Uint") : hwnd
+                imeWnd := DllCall(KBLTool.ImmGetDefaultIMEWnd, "Uint", hWnd)
+
+                SendMessage(0x50, , code, , imeWnd, , , , 100)
+                OutputDebug("[SetKBL] " windowHWnd " 已将键盘布局设置为 " code " 。`n")
+                Sleep(lag)
+
+                SendMessage(0x283, 0x2, imeState, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", imeWnd), , , , 100)
+                SendMessage(0x283, 0x6, 1, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", imeWnd), , , , 100)
+                OutputDebug("[SetKBL] " windowHWnd " 已将输入法状态设置为 " imeState " 。`n")
+
+                ; 判断是否切换成功
+                kbl := KBLTool.GetCurrentKBL(windowHWnd)
+                if (kbl.Name != language || kbl.ImeState != imeState) {
+                    OutputDebug("[SetKBL] " windowHWnd " 未能成功切换到 " language " 。准备进行第 " count " 次重试。`n")
+                    Sleep(lag)
+                    count++
+                    continue
+                }
+                break
             }
-
-            imeWnd := DllCall(KBLTool.ImmGetDefaultIMEWnd, "Uint", hWnd)
-
-            SendMessage(0x50, , code, , imeWnd, 1000)
-            Sleep(lag)
-
-            ; 这俩不用 DllCall 来调用的话，需要 Sleep 更久才可以真的改变输入法状态，非常的神奇
-            ; 我突然理解了，这 tm 是因为 DllCall 更慢吧！
-            DllCall("SendMessage"
-                , "UInt", imeWnd
-                , "UInt", 0x0283      ;Message : WM_IME_CONTROL
-                , "Int", 0x002       ;wParam  : IMC_SETCONVERSIONMODE
-                , "Int", state)   ;lParam  : CONVERSIONMODE
-            DllCall("SendMessage"
-                , "UInt", imeWnd
-                , "UInt", 0x0283      ;Message : WM_IME_CONTROL
-                , "Int", 0x006       ;wParam  : IMC_SETCONVERSIONMODE
-                , "Int", 1)   ;lParam  : CONVERSIONMODE
-
-            ; SendMessage(0x283, 0x6, 1, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd))
-            ; SendMessage(0x283, 0x2, state, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", hwnd))
-
-
-            ; 判断是否切换成功
-            ; kbl := KBLTool.GetCurrentKBL(windowHWnd)
-            ; if (kbl.name != language || kbl.state != state)
-            ;     continue
-
-
         }
         A_DetectHiddenWindows := temp
         Thread "NoTimers", false
