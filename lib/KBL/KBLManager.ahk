@@ -34,8 +34,9 @@ class KBLManager {
             if (!WinExist(hWnd))
                 return
             
-            KBLManager.OnWinActived(hWnd)
             pid := WinGetPID(hWnd)
+            
+            KBLManager.OnWinActived(hWnd)
             if (!KBLManager.RunningProcessData.Has(pid))
                 OnProcessClose(pid, (proc, *) => KBLManager.OnProcessExit(proc.ID))
         }
@@ -45,7 +46,6 @@ class KBLManager {
         for i, s in KBLSwitchSetting.KBLSwitchSettings {
             key := s.Key
             condition := s.Condition
-
             HotkeyPlus("~" key, (k) => KBLManager.NextKBL(k), condition.NeedRelease, condition.HoldTime, condition.ReverseHold)
         }
         HotKey("~CapsLock", (_) => KBLManager.OnCapsLockToggled())
