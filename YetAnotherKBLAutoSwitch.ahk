@@ -36,6 +36,7 @@ KBLManager.Initialize()
 A_TrayMenu.Delete()
 A_TrayMenu.Add("打开配置目录", (n, p, m) => Run(A_ScriptDir))
 A_TrayMenu.Add("打开 Window Spy", (n, p, m) => Run(A_ScriptDir "\Window Spy.exe"))
+A_TrayMenu.Add("打开语言首选项", OpenLanguageSetting)
 A_TrayMenu.Add("退出", (n, p, m) => ExitApp())
 
 Return
@@ -43,5 +44,13 @@ Return
 OnExitApp(exitReason, exitCode) {
     for i, callback in onExitCallbacks {
         callback.Call(exitReason, exitCode)
+    }
+}
+
+OpenLanguageSetting(n, p, m) {
+    try {
+        Run("ms-settings:regionlanguage")
+    } catch {
+        Run("rundll32.exe shell32.dll`,Control_RunDLL input.dll")
     }
 }
