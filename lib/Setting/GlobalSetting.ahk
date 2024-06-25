@@ -44,8 +44,9 @@ class GlobalSetting {
     }
 
     static SPI_GETTHREADLOCALINPUTSETTINGS := 0x104E
+    ; TODO 也许不需要了
     static GetStandAlongInSystem() {
-        pvParam := Buffer(4)
+/*         pvParam := Buffer(4)
         DllCall("SystemParametersInfoW",
             "UInt", GlobalSetting.SPI_GETTHREADLOCALINPUTSETTINGS,
             "UInt", 0,
@@ -54,7 +55,7 @@ class GlobalSetting {
         result := NumGet(pvParam, 0, "uint")
 
         VarSetStrCapacity(&pvParam, 0)
-        return result
+        return result */
     }
 
     static SPI_SETTHREADLOCALINPUTSETTINGS := 0x104F
