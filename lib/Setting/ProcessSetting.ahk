@@ -27,7 +27,7 @@ class ProcessSetting {
         name := Trim(value[1], " ")
 
         defaultKBL := StrSplit(value[-2], ":", " ")
-        defaultKBL := KeyboardLayout(defaultKBL[1], defaultKBL[2])
+        defaultKBL := KeyboardLayout(defaultKBL[1], Integer(defaultKBL[2]))
         alwaysRecorveToDefault := value[-1] == "true"
 
         ; 写窗口正则的情况
