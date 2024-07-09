@@ -11,7 +11,8 @@ class Util {
     static FixUWPWinID(hWnd, timeout := 5000) {
         while (!WinExist(hWnd))
             Sleep(1000 / 24)
-        
+
+
         if WinGetProcessName(hWnd) == "ApplicationFrameHost.exe" {
             TrueWindow := 0
             ; 因为加载速度的原因，ApplicationFrameHost 加载出来的时候，它的子窗口还没有完全加载出来，所以这里需要循环等待子窗口加载完成
@@ -60,7 +61,7 @@ class Util {
 
             if (callBack)
                 callBack(0, iniFile, value, dic, key)  ; 若有回调函数则处理值并存储
-            ; 我是不知道为什么明明两个形参的回调来要写成3个参数，写2个就报错。总是就这样写吧
+            ; 我是不知道为什么明明 4 个形参的回调要写成 5 个参数，写 4 个就报错。总是就这样写吧
             else
                 dic[key] := value  ; 没有回调函数则直接存储值
         }
@@ -117,7 +118,9 @@ class Util {
     }
 
     static SetStartUp() {
-        exe := A_WorkingDir "\Yakas.exe"
+        exe := A_WorkingDir "\" A_ScriptName
+        ; MsgBox(exe)
+        ; MsgBox(A_AppData "\Microsoft\Windows\Start Menu\Programs\Startup\Yakas.lnk")
         FileCreateShortcut(exe, A_AppData "\Microsoft\Windows\Start Menu\Programs\Startup\Yakas.lnk")
     }
 }

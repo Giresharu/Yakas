@@ -17,6 +17,7 @@ class KBLManager {
     static PreviousState := 0
     static GlobalState := 0
 
+
     static Initialize() {
         KBLManager.GlobalState := ProcessState("Global", GlobalSetting.DefualtKBL.Name, GlobalSetting.DefualtKBL.ImeState, false)
         KBLManager.RegisterHotkeys()
@@ -26,19 +27,17 @@ class KBLManager {
     ;这个似乎不会卡住，用这个来触发
     static RegisterWindowHook() {
         ; 已经激活的窗口不会触发回调，需要手动触发一次
-        OnActive(0, WinGetID("A"), 0)
+        try OnActive(0, WinGetID("A"), 0)
         WinEvent.Active(OnActive)
 
         OnActive(hook, hWnd, dwmsEventTime) {
             ; 防止瞬间就被关闭的窗口触发后续代码
             if (!WinExist(hWnd))
                 return
-            
+
             pid := WinGetPID(hWnd)
-            
-            KBLManager.OnWinActived(hWnd)
-            if (!KBLManager.RunningProcessData.Has(pid))
-                OnProcessClose(pid, (proc, *) => KBLManager.OnProcessExit(proc.ID))
+
+            try KBLManager.OnWinActived(hWnd)
         }
     }
 
@@ -46,14 +45,22 @@ class KBLManager {
         for i, s in KBLSwitchSetting.KBLSwitchSettings {
             key := s.Key
             condition := s.Condition
-            HotkeyPlus("~" key, (k) => KBLManager.NextKBL(k), condition.NeedRelease, condition.HoldTime, condition.ReverseHold)
+            HotkeyPlus("~" key, NextKBL, condition.NeedRelease, condition.HoldTime, condition.ReverseHold)
         }
-        HotKey("~CapsLock", (_) => KBLManager.OnCapsLockToggled())
+        HotKey("~CapsLock", OnCapsLockToggled)
+
+        OnCapsLockToggled(_) {
+            try KBLManager.OnCapsLockToggled()
+        }
+
+        NextKBL(key) {
+            try KBLManager.NextKBL(key)
+        }
     }
 
     static CapsLockHolding := 0
     static OnCapsLockToggled() {
-        if (!GlobalSetting.RemenberCaps || KBLManager.CapsLockHolding)
+        if (!GlobalSetting.RememberCaps || KBLManager.CapsLockHolding)
             return
 
         hWnd := Util.WinGetID("A")
@@ -62,19 +69,19 @@ class KBLManager {
             return
 
         ; 不能先获取 Global 而是先尝试获取进程
-        _processSetting := KBLManager.ReadProcessSetting(pid, path, name)
-        result := KBLManager.TryGetState(pid, winTitle, _processSetting, &_processState)
+        ; _processSetting := KBLManager.ReadProcessSetting(pid, path, name)
+        ; result := KBLManager.TryGetState(pid, winTitle, _processSetting, &_processState)
 
-        condition := result && !_processState.alwaysRecorveToDefault || !result
-        condition := condition && !GlobalSetting.StandAlong
+        ; condition := result && !_processState.alwaysRecorveToDefault || !result
+        ; condition := condition && !GlobalSetting.StandAlong
 
-        if (condition) {
-            _processState := KBLManager.GlobalState
-        } else if (!result) {
-            mode := GlobalSetting.StandAlong ? "StandAlong" : "Global"
-            throw WinGetTitle(hWnd) " processState's result is number: " result " in " mode " mode!"
-        }
-
+        ; if (condition) {
+        ;     _processState := KBLManager.GlobalState
+        ; } else if (!result) {
+        ;     mode := GlobalSetting.StandAlong ? "stand_along" : "Global"
+        ;     throw WinGetTitle(hWnd) " processState's result is number: " result " in " mode " mode!"
+        ; }
+        _processState := KBLManager.PreviousState
         startTick := A_TickCount
         while (true) {
             isCapsLockOn := GetKeyState("CapsLock", "T")
@@ -85,7 +92,8 @@ class KBLManager {
                 break
         }
 
-        if (_processState.CurrentLayout.CapsLockState != isCapsLockOn) {
+
+        if (ToolTipSetting.EnableOnManualSwitched && _processState.CurrentLayout.CapsLockState != isCapsLockOn) {
             _processState.CurrentLayout.CapsLockState := isCapsLockOn
             ToolTipPlus(_processState.CurrentLayout.Name, _processState.CurrentLayout.ImeState, isCapsLockOn)
         }
@@ -119,8 +127,7 @@ class KBLManager {
         if (!KBLManager.GetWinProperties(hWnd, &winTitle, &path, &name, &pid))
             return
 
-        OutputDebug("[ACTIVATED] winTitle: " winTitle " | ID: " hWnd " | process: " name " | path: " path " | pid: " pid "`n")
-
+        OutputDebug("[ACTIVATED] winTitle: " winTitle " | class: " WinGetClass(hWnd) " | ID: " hWnd " | process: " name " | path: " path " | pid: " pid "`n")
         _processSetting := KBLManager.ReadProcessSetting(pid, path, name)
 
         ; 获取该窗口对应的状态是否已经存在
@@ -128,11 +135,18 @@ class KBLManager {
         if (!result)
             KBLManager.CreateState(pid, path, name, hWnd, winTitle, _processSetting, regEx)
         else {
-            ; 如果 processState 没有变化，则不做任何处理, 资源管理器是例外
-            if (name != "explorer.exe" && state == KBLManager.PreviousState)
+            ; 如果 processState 没有变化，则不做任何处理
+            if (state == KBLManager.PreviousState)
                 return
 
-            KBLManager.MakePreviousStateNotGlobal()
+            if (!GlobalSetting.StandAlong)
+                KBLManager.MakePreviousStateNotGlobal()
+
+            if (KBLManager.CheckIfNeedKeepStateValue(hWnd)) {
+                OutputDebug("[ACTIVATED] 窗口 " winTitle " 位于 TrayWnd 配置中，状态复制上一个状态的值。`n")
+                state.CurrentLayout := KBLManager.PreviousState.CurrentLayout.Clone()
+                return
+            }
 
             ; AlwaysRecorveToDefault 时，自动恢复到默认状态，并根据配置解除大写锁定
             if (state.AlwaysRecorveToDefault) {
@@ -146,18 +160,19 @@ class KBLManager {
                     SetCapsLockState(capslockState ? "On" : "Off")
                     state.CurrentLayout.CapsLockState := capslockState
                 }
+                showToolTip := ToolTipSetting.EnableOnRecoverd
             } else {
-                ; 否则，切换至当前状态（由于 WindowsAPI 的 bug，不能指望系统设置的输入法窗口独立，必须再设置一次）
-                ; 但是可以考虑只在 explorer 的时候才强制切换
+                if (name == "explorer.exe")
+                    Sleep(100)
+
                 KBLTool.SetKBL(hWnd, state.CurrentLayout.Name, state.CurrentLayout.ImeState, GlobalSetting.Lag)
-                ; 设置大小写倒是必须触发，因为系统设置没有这个功能
                 SetCapsLockState(state.CurrentLayout.CapsLockState ? "On" : "Off")
+                showToolTip := ToolTipSetting.EnableOnAutoSwitched
             }
             ; 当 CapsLock 与 KBL 有其一发生变化时，显示 ToolTipPlus 并改变任务栏图标
-            if (KBLManager.PreviousState) {
-                if (!state.CompareStateWith(KBLManager.PreviousState))
-                    ToolTipPlus(state.CurrentLayout.Name, state.CurrentLayout.ImeState, state.CurrentLayout.CapsLockState)
-            }
+            if (showToolTip && KBLManager.PreviousState && !state.CompareStateWith(KBLManager.PreviousState))
+                ToolTipPlus(state.CurrentLayout.Name, state.CurrentLayout.ImeState, state.CurrentLayout.CapsLockState)
+
             KBLManager.PreviousState := state
             return
         }
@@ -168,6 +183,8 @@ class KBLManager {
 
         ; 如果之前没有运行过该进程，则新建一个 ProcessState
         if (!KBLManager.RunningProcessData.Has(pid)) {
+            OnProcessClose(pid, (proc, *) => KBLManager.OnProcessExit(proc.ID))
+
             KBLManager.RunningProcessData[pid] := Map()
             ; 先从进程的状态开始创建，并根据是否全局设置其 CurrentLayout 是否引用 GlobalState
             ; 没有 _processSetting 代表进程与窗口都没有配置，此时应该使用视独立与否决定使用 GLobalSetting.DefualtKBL 还是 GlobalState 的 CurentLayout
@@ -209,6 +226,12 @@ class KBLManager {
             }
         }
 
+        if (KBLManager.CheckIfNeedKeepStateValue(hWnd)) {
+            OutputDebug("[CreateState] 窗口 " winTitle " 位于 TrayWnd 配置中，状态不使用默认值而改为复制上一个状态的值。`n")
+            state.CurrentLayout := KBLManager.PreviousState.CurrentLayout.Clone()
+            return
+        }
+
         ; 修改键盘布局到当前的 state 的 CurrentLayout
         kbl := state.CurrentLayout
 
@@ -221,6 +244,19 @@ class KBLManager {
             ToolTipPlus(kbl.Name, kbl.ImeState, kbl.CapsLockState)
         }
         KBLManager.PreviousState := state
+
+    }
+
+    static CheckIfNeedKeepStateValue(hWnd) {
+        temp := A_DetectHiddenWindows
+        A_DetectHiddenWindows := true
+        ; 问题在于 Win11的 开始 和 搜索 两个菜单。当 打开开始时，会激活搜索，但是 WinExist 中不存在 搜索
+        ; 所以主动激活，让其存在
+        WinActivate(hWnd)
+        result := WinExist("ahk_id" hWnd " ahk_group TrayWnd")
+        A_DetectHiddenWindows := temp
+
+        return result
     }
 
     ; 查询窗口在进程的设置中匹配的正则
@@ -315,10 +351,10 @@ class KBLManager {
             hWnd := Util.WinGetID("A")
 
         ; 任务栏无法切换，所以不要白费功夫了
-        if (WinActive("ahk_class Shell_TrayWnd ahk_exe explorer.exe")) {
-            OutputDebug("[NextKBL] Ignore: 因 API 限制，在任务栏中无法正常工作。 hotkey: " hotkey "`n")
-            return
-        }
+        ; if (WinActive("ahk_class Shell_TrayWnd ahk_exe explorer.exe")) {
+        ;     OutputDebug("[NextKBL] Ignore: 因 API 限制，在任务栏中无法正常工作。 hotkey: " hotkey "`n")
+        ;     return
+        ; }
 
         hotkey := Trim(hotkey, '~')
         SwitchSetting := KBLSwitchSetting[hotkey]
@@ -365,7 +401,8 @@ class KBLManager {
             OutputDebug("[NextKBL] 清除大写锁定。`n")
         }
 
-        ToolTipPlus(kbl, imeState, _processState.CurrentLayout.CapsLockState)
+        if (ToolTipSetting.EnableOnManualSwitched)
+            ToolTipPlus(kbl, imeState, _processState.CurrentLayout.CapsLockState)
     }
 
     static FindSimilarKBL(layouts, hWnd) {

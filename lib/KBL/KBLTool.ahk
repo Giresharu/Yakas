@@ -74,6 +74,7 @@ class KBLTool {
 
     ; 设置键盘布局
     static SetKBL(hWnd, language, imeState := 0, lag := 50) {
+        result := 0
         Thread "NoTimers"
         temp := A_DetectHiddenWindows
         try {
@@ -92,7 +93,7 @@ class KBLTool {
                 SendInput("{Enter}")
             }
             OutputDebug("[SetKBL] 正在为 " windowHWnd " 设置键盘布局。`n")
-            count:= 1
+            count := 1
             loop {
                 if (WinExist(windowHWnd)) {
                     ptrSize := !A_PtrSize ? 4 : A_PtrSize
@@ -101,16 +102,19 @@ class KBLTool {
                     NumPut("UInt", cbSize, stGTI.Ptr, 0)   ;   DWORD   cbSize;
                     hWnd := DllCall(KBLTool.GetUIThreadInfo, "Uint", 0, "Uint", stGTI.Ptr)
                         ? NumGet(stGTI.Ptr, 8 + PtrSize, "Uint") : windowHWnd
+                } else {
+                    OutputDebug("[SetKBL] " windowHWnd " 不存在，退出设置。`n")
+                    break
                 }
 
                 imeWnd := DllCall(KBLTool.ImmGetDefaultIMEWnd, "Uint", hWnd)
 
-                SendMessage(0x50, , code, , imeWnd, , , , 100)
+                SendMessage(0x50, , code, , imeWnd, , , , 500)
                 OutputDebug("[SetKBL] " windowHWnd " 已将键盘布局设置为 " code " 。`n")
                 Sleep(lag)
 
-                SendMessage(0x283, 0x2, imeState, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", imeWnd), , , , 100)
-                SendMessage(0x283, 0x6, 1, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", imeWnd), , , , 100)
+                SendMessage(0x283, 0x2, imeState, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", imeWnd), , , , 500)
+                SendMessage(0x283, 0x6, 1, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", imeWnd), , , , 500)
                 OutputDebug("[SetKBL] " windowHWnd " 已将输入法状态设置为 " imeState " 。`n")
 
                 ; 判断是否切换成功
@@ -119,13 +123,20 @@ class KBLTool {
                     OutputDebug("[SetKBL] " windowHWnd " 未能成功切换到 " language " 。准备进行第 " count " 次重试。`n")
                     Sleep(lag)
                     count++
+
+                    if (count > 3) {
+                        OutputDebug("[SetKBL] " windowHWnd " 未能成功切换到 " language " 。不再尝试。`n")
+                        break
+                    }
                     continue
                 }
+                result := 1
                 break
             }
         }
         A_DetectHiddenWindows := temp
         Thread "NoTimers", false
+        return result
     }
 
     static _0036 := "af"

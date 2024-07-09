@@ -20,7 +20,8 @@ class KBLSwitchSetting {
 
     static Initialize(iniFile) {
         KBLSwitchSetting.KBLSwitchSettings := KBLSwitchSetting.FromINI(iniFile)
-        Util.INIReadForeach(iniFile, "AutoSendString", KBLSwitchSetting.AddToGroup)
+        Util.INIReadForeach(iniFile, "AutoSendString", KBLSwitchSetting.AddToGroupAutoSendString)
+        Util.INIReadForeach(iniFile, "TrayWnd", KBLSwitchSetting.AddToGroupTrayWnd)
     }
 
     ; 从 ini 文件中读取设置并返回 KBLSwitchSetting 对象
@@ -32,8 +33,12 @@ class KBLSwitchSetting {
         dic[key] := KBLSwitchSetting(value, key, condition, layouts)
     }
 
-    static AddToGroup(iniFile, value, dic, _) {
-        GroupAdd "AutoSendString", "ahk_class " Trim(value, " ")
+    static AddToGroupAutoSendString(iniFile, value, dic, _) {
+        GroupAdd "AutoSendString", value
+    }
+
+    static AddToGroupTrayWnd(iniFile, value, dic, _) {
+        GroupAdd "TrayWnd", value
     }
 
     static SplitKeys(key) {

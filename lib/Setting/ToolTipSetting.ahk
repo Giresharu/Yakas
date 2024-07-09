@@ -4,6 +4,9 @@
 class ToolTipSetting {
     static Global := ""
     static ToolTips := Map()
+    static EnableOnManualSwitched := true
+    static EnableOnAutoSwitched := true
+    static EnableOnRecoverd := true
 
     static __Item[key] => ToolTipSetting.ToolTips[key]
 
@@ -36,6 +39,9 @@ class ToolTipSetting {
     static Initialize(iniFile) {
         ToolTipSetting.Global := ToolTipSetting.ParseINI(iniFile, "GlobalToolTip")
         ToolTipSetting.ToolTips := ToolTipSetting.FromINI(iniFile)
+        ToolTipSetting.EnableOnManualSwitched := Util.INIRead(iniFile, "GlobalToolTip", "enable_on_manual_switched", "true") == "true"
+        ToolTipSetting.EnableOnAutoSwitched := Util.INIRead(iniFile, "GlobalToolTip", "enable_on_auto_switched", "true") == "true"
+        ToolTipSetting.EnableOnRecoverd := Util.INIRead(iniFile, "GlobalToolTip", "enalbe_on_recovered", "true") == "true"
     }
 
     static FromINI(iniFile) {

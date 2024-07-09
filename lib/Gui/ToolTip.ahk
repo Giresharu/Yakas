@@ -8,7 +8,7 @@ ToolTipPlus(kbl, imeState, capslock) {
     static myGui := Gui("-SysMenu +ToolWindow +AlwaysOnTop -Caption -DPIScale +E0x20")
     static RefreshRate := 60
 
-    ChangeTray()
+    ; ChangeTray()
     if (timer != "")
         SetTimer(timer, 0)
 
@@ -86,25 +86,25 @@ ToolTipPlus(kbl, imeState, capslock) {
         WinSetTransparent(alpha, myGui.hWnd)
     }
 
-    ; TODO 改到单独的 Class 去实现
-    ChangeTray() {
-        iconPath := A_ScriptDir "\icons\"
-        language := kbl "\"
-        Caps := (capslock ? "Caps" : "")
+    ; 不需要了
+    ; ChangeTray() {
+    ;     iconPath := A_ScriptDir "\icons\"
+    ;     language := kbl "\"
+    ;     Caps := (capslock ? "Caps" : "")
 
-        path := iconPath language Caps imeState ".png"
-        if (!FileExist(path))
-            path := iconPath language Caps ".png"
-        if (!FileExist(path))
-            path := iconPath language "icon.png"
-        if (!FileExist(path))
-            path := iconPath "icon.png"
+    ;     path := iconPath language Caps imeState ".png"
+    ;     if (!FileExist(path))
+    ;         path := iconPath language Caps ".png"
+    ;     if (!FileExist(path))
+    ;         path := iconPath language "icon.png"
+    ;     if (!FileExist(path))
+    ;         path := iconPath "icon.png"
 
 
-        if (FileExist(path)) {
-            TraySetIcon(path)
-        }
+    ;     if (FileExist(path)) {
+    ;         TraySetIcon(path)
+    ;     }
 
-    }
+    ; }
 
 }

@@ -7,7 +7,7 @@ class GlobalSetting {
     static CleanOnProcessExit := true
     static DefualtKBL := "en-US: 0"
     static Lag := 50
-    static RemenberCaps := true
+    static RememberCaps := true
     static CleanCapsOnSwitched := true
     static CleanCapsOnProcessChanged := true
     static CleanCapsOnRecovered := true
@@ -17,36 +17,36 @@ class GlobalSetting {
     }
 
     static FromINI(iniFile) {
-        ; GlobalSetting.StandAlong := Util.INIRead(iniFile, "GlobalSetting", "StandAlong", "true") == "true"
+        ; GlobalSetting.StandAlong := Util.INIRead(iniFile, "GlobalSetting", "stand_along", "true") == "true"
         GlobalSetting.InitializeStandAlong(iniFile)
-        GlobalSetting.CleanOnProcessExit := Util.INIRead(iniFile, "GlobalSetting", "CleanOnProcessExit", "true") == "true"
+        GlobalSetting.CleanOnProcessExit := Util.INIRead(iniFile, "GlobalSetting", "clean_on_process_exit", "true") == "true"
 
         GlobalSetting.DefualtKBL := Util.INIRead(iniFile, "GlobalSetting", "DefualtKBL", "en-US: 0")
         GlobalSetting.DefualtKBL := StrSplit(GlobalSetting.DefualtKBL, ":", " ")
 
         GlobalSetting.DefualtKBL := KeyboardLayout(GlobalSetting.DefualtKBL[1], GlobalSetting.DefualtKBL[2])
 
-        GlobalSetting.Lag := Util.INIRead(iniFile, "GlobalSetting", "Lag", "50")
-        GlobalSetting.RemenberCaps := Util.INIRead(iniFile, "GlobalSetting", "RemenberCaps", "true") == "true"
-        GlobalSetting.CleanCapsOnSwitched := Util.INIRead(iniFile, "GlobalSetting", "CleanCapsOnSwitched", "true") == "true"
+        GlobalSetting.Lag := Util.INIRead(iniFile, "GlobalSetting", "lag", "50")
+        GlobalSetting.RememberCaps := Util.INIRead(iniFile, "GlobalSetting", "remember_caps", "true") == "true"
+        GlobalSetting.CleanCapsOnSwitched := Util.INIRead(iniFile, "GlobalSetting", "clean_caps_on_switched", "true") == "true"
         GlobalSetting.CleanCapsOnProcessChanged := Util.INIRead(iniFile, "GlobalSetting", "CleanCapsOnProcessChanged", "true") == "true"
-        GlobalSetting.CleanCapsOnRecovered := Util.INIRead(iniFile, "GlobalSetting", "CleanCapsOnRecovered", "true") == "true"
+        GlobalSetting.CleanCapsOnRecovered := Util.INIRead(iniFile, "GlobalSetting", "clean_caps_on_recovered", "true") == "true"
     }
 
     ; 存储用户本来的设置，在退出时恢复
     static InitializeStandAlong(iniFile) {
-        GlobalSetting.StandAlong := Util.INIRead(iniFile, "GlobalSetting", "StandAlong", "true") == "true"
-        temp := GlobalSetting.GetStandAlongInSystem()
-        GlobalSetting.SetStandAlongInSystem(true)
-        global onExitCallbacks
+        GlobalSetting.StandAlong := Util.INIRead(iniFile, "GlobalSetting", "stand_along", "true") == "true"
+        ; temp := GlobalSetting.GetStandAlongInSystem()
+        ; GlobalSetting.SetStandAlongInSystem(0)
+        ; global onExitCallbacks
 
-        onExitCallbacks.Push((a, b) => GlobalSetting.SetStandAlongInSystem(temp))
+        ; onExitCallbacks.Push((a, b) => GlobalSetting.SetStandAlongInSystem(temp))
     }
 
     static SPI_GETTHREADLOCALINPUTSETTINGS := 0x104E
-    ; TODO 也许不需要了
+
     static GetStandAlongInSystem() {
-/*         pvParam := Buffer(4)
+        pvParam := Buffer(4)
         DllCall("SystemParametersInfoW",
             "UInt", GlobalSetting.SPI_GETTHREADLOCALINPUTSETTINGS,
             "UInt", 0,
@@ -55,9 +55,10 @@ class GlobalSetting {
         result := NumGet(pvParam, 0, "uint")
 
         VarSetStrCapacity(&pvParam, 0)
-        return result */
+        return result
     }
-
+    
+    ; BUG value 为 0 时也会调整选项为 true
     static SPI_SETTHREADLOCALINPUTSETTINGS := 0x104F
     static SetStandAlongInSystem(value) {
         pvParam := Buffer(4)
