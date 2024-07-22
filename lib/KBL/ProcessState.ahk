@@ -5,9 +5,9 @@ class ProcessState {
     ; RegExWindows := 0
 
 
-    __New(title, defualtKBL, defualtState, alwaysRecorveToDefault) {
+    __New(title, defualtKBL, defualtState, defaultChangeStateDelay, alwaysRecorveToDefault) {
         this.Title := title
-        this.DefualtLayout := KeyboardLayout(defualtKBL, defualtState)
+        this.DefualtLayout := KeyboardLayout(defualtKBL, defualtState, defaultChangeStateDelay)
         this.DefualtLayout.PrevioursSwitchIndex := 0
         this.DefualtLayout.CapsLockState := 0
         this.DefualtLayout.PrevioursSwitch := ""
@@ -19,10 +19,10 @@ class ProcessState {
         this.RegExStates[this.RegExWindows[winTitle]]
 
 
-    Update(key, SwitchIndex, name, state) {
+    Update(key, SwitchIndex, name, state, changeStateDelay) {
         ; this.PrevioursSwitch := key
         ; this.PrevioursSwitchIndex := SwitchIndex
-        this.CurrentLayout.Set(name, state, key, SwitchIndex)
+        this.CurrentLayout.Set(name, state, changeStateDelay, key, SwitchIndex)
     }
 
     AddRegExState(state) {
@@ -38,7 +38,7 @@ class ProcessState {
             return true
         }
 
-        if (this.RegExStates.Has(regEx)) {
+        if (this.RegExStates && this.RegExStates.Has(regEx)) {
             state := this.RegExStates[regEx]
             return true
         }
@@ -47,7 +47,7 @@ class ProcessState {
     }
 
     RecoverToDefualtValue() {
-        this.CurrentLayout.Set(this.DefualtLayout.Name, this.DefualtLayout.ImeState, "", 0, 0)
+        this.CurrentLayout.Set(this.DefualtLayout.Name, this.DefualtLayout.ImeState, this.DefualtLayout.ChangeStateDelay, "", 0, 0)
     }
 
     RecoverToDefualt() {

@@ -16,10 +16,11 @@ class KBLManager {
     static RunningProcessSettings := Map()
     static PreviousState := 0
     static GlobalState := 0
+    ; static selfPID := A_PID
 
 
     static Initialize() {
-        KBLManager.GlobalState := ProcessState("Global", GlobalSetting.DefualtKBL.Name, GlobalSetting.DefualtKBL.ImeState, false)
+        KBLManager.GlobalState := ProcessState("Global", GlobalSetting.DefualtKBL.Name, GlobalSetting.DefualtKBL.ImeState, GlobalSetting.DefualtKBL.ChangeStateDelay, false)
         KBLManager.RegisterHotkeys()
         KBLManager.RegisterWindowHook()
     }
@@ -37,7 +38,7 @@ class KBLManager {
 
             pid := WinGetPID(hWnd)
 
-            try KBLManager.OnWinActived(hWnd)
+            KBLManager.OnWinActived(hWnd)
         }
     }
 
@@ -54,7 +55,7 @@ class KBLManager {
         }
 
         NextKBL(key) {
-            try KBLManager.NextKBL(key)
+            KBLManager.NextKBL(key)
         }
     }
 
@@ -68,19 +69,6 @@ class KBLManager {
         if (!KBLManager.GetWinProperties(hWnd, &winTitle, &path, &name, &pid))
             return
 
-        ; 不能先获取 Global 而是先尝试获取进程
-        ; _processSetting := KBLManager.ReadProcessSetting(pid, path, name)
-        ; result := KBLManager.TryGetState(pid, winTitle, _processSetting, &_processState)
-
-        ; condition := result && !_processState.alwaysRecorveToDefault || !result
-        ; condition := condition && !GlobalSetting.StandAlong
-
-        ; if (condition) {
-        ;     _processState := KBLManager.GlobalState
-        ; } else if (!result) {
-        ;     mode := GlobalSetting.StandAlong ? "stand_along" : "Global"
-        ;     throw WinGetTitle(hWnd) " processState's result is number: " result " in " mode " mode!"
-        ; }
         _processState := KBLManager.PreviousState
         startTick := A_TickCount
         while (true) {
@@ -119,7 +107,9 @@ class KBLManager {
                     ? ProcessSetting[name]
                         : 0)
         }
-        return KBLManager.RunningProcessSettings[pid]
+
+        _processSetting := KBLManager.RunningProcessSettings[pid]
+        return _processSetting
     }
 
     static OnWinActived(hWnd) {
@@ -138,21 +128,20 @@ class KBLManager {
             ; 如果 processState 没有变化，则不做任何处理
             if (state == KBLManager.PreviousState)
                 return
-
             if (!GlobalSetting.StandAlong)
                 KBLManager.MakePreviousStateNotGlobal()
-
             if (KBLManager.CheckIfNeedKeepStateValue(hWnd)) {
                 OutputDebug("[ACTIVATED] 窗口 " winTitle " 位于 TrayWnd 配置中，状态复制上一个状态的值。`n")
                 state.CurrentLayout := KBLManager.PreviousState.CurrentLayout.Clone()
                 return
             }
-
+            delay := state.CurrentLayout.ChangeStateDelay >= 0 ? state.CurrentLayout.ChangeStateDelay : GlobalSetting.Delay
             ; AlwaysRecorveToDefault 时，自动恢复到默认状态，并根据配置解除大写锁定
             if (state.AlwaysRecorveToDefault) {
+                OutputDebug("RecoverToDefualtValue")
                 capslockState := state.CurrentLayout.CapsLockState
                 state.RecoverToDefualtValue()
-                KBLTool.SetKBL(hWnd, state.CurrentLayout.Name, state.CurrentLayout.ImeState, GlobalSetting.Lag)
+                KBLTool.SetKBL(hWnd, state.CurrentLayout.Name, state.CurrentLayout.ImeState, delay)
                 if (GlobalSetting.CleanCapsOnRecovered)
                     SetCapsLockState("Off")
                 else {
@@ -162,10 +151,10 @@ class KBLManager {
                 }
                 showToolTip := ToolTipSetting.EnableOnRecoverd
             } else {
-                if (name == "explorer.exe")
-                    Sleep(100)
+                ; if (name == "explorer.exe")
+                ;     Sleep(100)
 
-                KBLTool.SetKBL(hWnd, state.CurrentLayout.Name, state.CurrentLayout.ImeState, GlobalSetting.Lag)
+                KBLTool.SetKBL(hWnd, state.CurrentLayout.Name, state.CurrentLayout.ImeState, delay)
                 SetCapsLockState(state.CurrentLayout.CapsLockState ? "On" : "Off")
                 showToolTip := ToolTipSetting.EnableOnAutoSwitched
             }
@@ -189,9 +178,9 @@ class KBLManager {
             ; 先从进程的状态开始创建，并根据是否全局设置其 CurrentLayout 是否引用 GlobalState
             ; 没有 _processSetting 代表进程与窗口都没有配置，此时应该使用视独立与否决定使用 GLobalSetting.DefualtKBL 还是 GlobalState 的 CurentLayout
             if (_processSetting)
-                KBLManager.RunningProcessStates[pid] := ProcessState(pid, _processSetting.DefaultKBL.Name, _processSetting.DefaultKBL.ImeState, _processSetting.AlwaysRecorveToDefault)
+                KBLManager.RunningProcessStates[pid] := ProcessState(pid, _processSetting.DefaultKBL.Name, _processSetting.DefaultKBL.ImeState, _processSetting.DefaultKBL.ChangeStateDelay, _processSetting.AlwaysRecorveToDefault)
             else
-                KBLManager.RunningProcessStates[pid] := ProcessState(pid, GlobalSetting.DefualtKBL.Name, GlobalSetting.DefualtKBL.ImeState, false)
+                KBLManager.RunningProcessStates[pid] := ProcessState(pid, GlobalSetting.DefualtKBL.Name, GlobalSetting.DefualtKBL.ImeState, GlobalSetting.DefualtKBL.ChangeStateDelay, false)
 
             state := KBLManager.RunningProcessStates[pid]
             KBLManager.RefGlobalState(&state, _processSetting)
@@ -215,8 +204,8 @@ class KBLManager {
                 }
                 ; 读取正则的 Setting，并以创建 regExState
                 _processSetting := _processSetting.RegExSettings[regEx]
-                _regExState := ProcessState(regEx, _processSetting.DefaultKBL.Name, _processSetting.DefaultKBL.ImeState, _processSetting.AlwaysRecorveToDefault)
-
+                _regExState := ProcessState(regEx, _processSetting.DefaultKBL.Name, _processSetting.DefaultKBL.ImeState, _processSetting.DefaultKBL.ChangeStateDelay, _processSetting.AlwaysRecorveToDefault)
+                state.AddRegExState(_regExState)
                 state := _regExState
                 KBLManager.RefGlobalState(&_regExState, _processSetting)
                 ; 没有运行过的进程，一定会恢复默认状态，所以要恢复大写锁定
@@ -234,12 +223,12 @@ class KBLManager {
 
         ; 修改键盘布局到当前的 state 的 CurrentLayout
         kbl := state.CurrentLayout
+        delay := kbl.ChangeStateDelay >= 0 ? kbl.ChangeStateDelay : GlobalSetting.Delay
 
-        KBLTool.SetKBL(hWnd, kbl.Name, kbl.ImeState, GlobalSetting.Lag)
+        KBLTool.SetKBL(hWnd, kbl.Name, kbl.ImeState, delay)
         SetCapsLockState(kbl.CapsLockState ? "On" : "Off")
 
-        ; 如果这是第一个状态，或者状态与此前数值不同（键盘布局、状态值、大写锁定），则触发 ToolTip 并修改任务栏图标
-        ; 分离 ToolTipPlus 和 TrayIcon 的代码，使得 TrayIcon 初始化时就能调用，而不触发 ToolTipPlus
+        ; 如果这是第一个状态，或者状态与此前数值不同（键盘布局、状态值、大写锁定），则触发 ToolTip
         if (!KBLManager.PreviousState || !state.CompareStateWith(KBLManager.PreviousState)) {
             ToolTipPlus(kbl.Name, kbl.ImeState, kbl.CapsLockState)
         }
@@ -252,7 +241,8 @@ class KBLManager {
         A_DetectHiddenWindows := true
         ; 问题在于 Win11的 开始 和 搜索 两个菜单。当 打开开始时，会激活搜索，但是 WinExist 中不存在 搜索
         ; 所以主动激活，让其存在
-        WinActivate(hWnd)
+        if (!WinActive(hWnd))
+            WinActivate(hWnd)
         result := WinExist("ahk_id" hWnd " ahk_group TrayWnd")
         A_DetectHiddenWindows := temp
 
@@ -261,11 +251,15 @@ class KBLManager {
 
     ; 查询窗口在进程的设置中匹配的正则
     static WhichRegExCanMatchTitle(setting, winTitle) {
-        if (setting && setting.RegExSettings)
-            for i, s in setting.RegExSettings
-                if (RegExMatch(winTitle, s.Title))
-                    return s.Title
-
+        if (setting && setting.SortedRegExSetting) {
+            i := setting.SortedRegExSetting.Length
+            while (i > 0) {
+                regex := setting.SortedRegExSetting[i].Title
+                if (RegExMatch(winTitle, regex))
+                    return regex
+                i--
+            }
+        }
         return 0
     }
 
@@ -286,7 +280,7 @@ class KBLManager {
     static MakePreviousStateNotGlobal() {
         if (KBLManager.PreviousState) {
             temp := KBLManager.PreviousState.CurrentLayout.Clone()
-            KBLManager.PreviousState := ProcessState("Temp", 0, 0, 0)
+            KBLManager.PreviousState := ProcessState("Temp", 0, 0, 0, 0)
             KBLManager.PreviousState.CurrentLayout := temp
         }
     }
@@ -377,12 +371,19 @@ class KBLManager {
             }
         }
 
-        ; 避免每次都搜索近似键盘布局，先查找是否有记录的索引
+        ; 无论是否有记录的索引都要先判断一下，防止被其他方式修改过输入法
+        ; BUG 因为微软 API 的 BUG （特性？），有时候 ImeState 的值与实际输入法的状态不同，所以可能会造成误判。暂时没有办法解决。
+        currentKBL := KBLTool.GetCurrentKBL(hWnd)
         if (_processState.CurrentLayout.PrevioursSwitch == hotkey) {
             index := _processState.CurrentLayout.PrevioursSwitchIndex
-            OutputDebug("[NextKBL] 继续使用上一次的切换方案 " hotkey " ，成功获取到当前索引 " index " 。`n")
+            indexKBL := SwitchSetting.Layouts[index]
+            if (currentKBL.Name == indexKBL.Name && currentKBL.ImeState == indexKBL.ImeState)
+                OutputDebug("[NextKBL] 继续使用上一次的切换方案 " hotkey " ，成功获取到当前索引 " index " 。`n")
+            else
+                index := KBLManager.FindSimilarKBL(currentKBL, SwitchSetting.Layouts, hWnd)
+            OutputDebug("[NextKBL] 继续使用上一次的切换方案 " hotkey " ，但当前索引 " index " 与当前输入法不匹配，重新获取近似索引 " index " 。`n")
         } else {
-            index := KBLManager.FindSimilarKBL(SwitchSetting.Layouts, hWnd)
+            index := KBLManager.FindSimilarKBL(currentKBL, SwitchSetting.Layouts, hWnd)
             OutputDebug("[NextKBL] " hotkey " 与上次切换方案不同，获取近似键盘布局索引为 " index " 。`n")
         }
         ; 切换到下一个键盘布局
@@ -390,9 +391,10 @@ class KBLManager {
         index := Mod(index, kblCapcity) + 1
         kbl := SwitchSetting.Layouts[index].Name
         imeState := SwitchSetting.Layouts[index].ImeState
+        delay := SwitchSetting.Layouts[index].ChangeStateDelay >= 0 ? SwitchSetting.Layouts[index].ChangeStateDelay : GlobalSetting.Delay
 
-        _processState.Update(hotkey, index, kbl, imeState)
-        KBLTool.SetKBL(hWnd, kbl, imeState, GlobalSetting.Lag)
+        _processState.Update(hotkey, index, kbl, imeState, delay)
+        KBLTool.SetKBL(hWnd, kbl, imeState, delay)
         OutputDebug("[NextKBL] 切换到切换方案 " hotkey " 的第 " index " 个键盘布局 " kbl " ，状态 " imeState " 。`n")
 
         if (GlobalSetting.CleanCapsOnSwitched) {
@@ -405,9 +407,8 @@ class KBLManager {
             ToolTipPlus(kbl, imeState, _processState.CurrentLayout.CapsLockState)
     }
 
-    static FindSimilarKBL(layouts, hWnd) {
+    static FindSimilarKBL(kbl, layouts, hWnd) {
         try {
-            kbl := KBLTool.GetCurrentKBL(hWnd)
             name := kbl.Name
             imeState := kbl.ImeState
 

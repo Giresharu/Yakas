@@ -6,7 +6,7 @@ class GlobalSetting {
     static StandAlong := true
     static CleanOnProcessExit := true
     static DefualtKBL := "en-US: 0"
-    static Lag := 50
+    static Delay := 50
     static RememberCaps := true
     static CleanCapsOnSwitched := true
     static CleanCapsOnProcessChanged := true
@@ -21,15 +21,22 @@ class GlobalSetting {
         GlobalSetting.InitializeStandAlong(iniFile)
         GlobalSetting.CleanOnProcessExit := Util.INIRead(iniFile, "GlobalSetting", "clean_on_process_exit", "true") == "true"
 
-        GlobalSetting.DefualtKBL := Util.INIRead(iniFile, "GlobalSetting", "DefualtKBL", "en-US: 0")
-        GlobalSetting.DefualtKBL := StrSplit(GlobalSetting.DefualtKBL, ":", " ")
+        GlobalSetting.DefualtKBL := Util.INIRead(iniFile, "GlobalSetting", "default_kbl", "en-US: 0")
+        str := StrSplit(GlobalSetting.DefualtKBL, ":", " ")
+        kbl := str[1]
+        imeState := str[2]
 
-        GlobalSetting.DefualtKBL := KeyboardLayout(GlobalSetting.DefualtKBL[1], GlobalSetting.DefualtKBL[2])
+        str := StrSplit(imeState, "|", " ")
+        imeState := Integer(str[1])
+        delay := str.Length > 1 ? Integer(str[2]) : -1
 
-        GlobalSetting.Lag := Util.INIRead(iniFile, "GlobalSetting", "lag", "50")
+        GlobalSetting.DefualtKBL := KeyboardLayout(kbl, imeState, delay)
+
+
+        GlobalSetting.Delay := Util.INIRead(iniFile, "GlobalSetting", "delay", "50")
         GlobalSetting.RememberCaps := Util.INIRead(iniFile, "GlobalSetting", "remember_caps", "true") == "true"
         GlobalSetting.CleanCapsOnSwitched := Util.INIRead(iniFile, "GlobalSetting", "clean_caps_on_switched", "true") == "true"
-        GlobalSetting.CleanCapsOnProcessChanged := Util.INIRead(iniFile, "GlobalSetting", "CleanCapsOnProcessChanged", "true") == "true"
+        ; GlobalSetting.CleanCapsOnProcessChanged := Util.INIRead(iniFile, "GlobalSetting", "CleanCapsOnProcessChanged", "true") == "true"
         GlobalSetting.CleanCapsOnRecovered := Util.INIRead(iniFile, "GlobalSetting", "clean_caps_on_recovered", "true") == "true"
     }
 
@@ -57,7 +64,7 @@ class GlobalSetting {
         VarSetStrCapacity(&pvParam, 0)
         return result
     }
-    
+
     ; BUG value 为 0 时也会调整选项为 true
     static SPI_SETTHREADLOCALINPUTSETTINGS := 0x104F
     static SetStandAlongInSystem(value) {

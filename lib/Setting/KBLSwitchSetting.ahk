@@ -83,9 +83,14 @@ class KBLSwitchSetting {
             str := StrSplit(A_LoopField, ":", " ")
 
             name := str[1]
-            imeState := str.Length > 1 ? Integer(str[2]) : 0x0
+            imeState := str.Length > 1 ? str[2] : 0
 
-            arr.Push(KBLSwitchSetting.Layout(name, imeState))
+            ; 分析 | 分割表示的修改 state 延迟
+            str := StrSplit(imeState, "|", " ")
+            imeState := Integer(str[1])
+            delay := str.Length > 1 ? Integer(str[2]) : -1
+
+            arr.Push(KBLSwitchSetting.Layout(name, imeState, delay))
         }
         return arr
     }
@@ -101,9 +106,10 @@ class KBLSwitchSetting {
 
     ; 用于存储单个键盘布局设置
     class Layout {
-        __New(name, imeState) {
+        __New(name, imeState, changeStateDelay) {
             this.Name := name
             this.ImeState := imeState
+            this.ChangeStateDelay := changeStateDelay
         }
     }
 

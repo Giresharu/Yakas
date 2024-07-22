@@ -66,14 +66,14 @@ class KBLTool {
         }
         name := KBLTool.LangIdToName(name)
         A_DetectHiddenWindows := temp
-        return KeyboardLayout(name, imeState)
+        return KeyboardLayout(name, imeState, -1)
     }
 
     static LangIdToName(langId) =>
         KBLTool.%"_" langId%
 
     ; 设置键盘布局
-    static SetKBL(hWnd, language, imeState := 0, lag := 50) {
+    static SetKBL(hWnd, language, imeState := 0, delay := 0) {
         result := 0
         Thread "NoTimers"
         temp := A_DetectHiddenWindows
@@ -111,7 +111,8 @@ class KBLTool {
 
                 SendMessage(0x50, , code, , imeWnd, , , , 500)
                 OutputDebug("[SetKBL] " windowHWnd " 已将键盘布局设置为 " code " 。`n")
-                Sleep(lag)
+                ; ToolTip("已将键盘布局设置为 " code " 现在延迟" delay "毫秒后设置state。")
+                Sleep(delay)
 
                 SendMessage(0x283, 0x2, imeState, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", imeWnd), , , , 500)
                 SendMessage(0x283, 0x6, 1, , DllCall("imm32\ImmGetDefaultIMEWnd", "Uint", imeWnd), , , , 500)
@@ -121,7 +122,7 @@ class KBLTool {
                 kbl := KBLTool.GetCurrentKBL(windowHWnd)
                 if (kbl.Name != language || kbl.ImeState != imeState) {
                     OutputDebug("[SetKBL] " windowHWnd " 未能成功切换到 " language " 。准备进行第 " count " 次重试。`n")
-                    Sleep(lag)
+                    Sleep(delay)
                     count++
 
                     if (count > 3) {
