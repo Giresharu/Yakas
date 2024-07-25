@@ -241,8 +241,10 @@ class KBLManager {
         A_DetectHiddenWindows := true
         ; 问题在于 Win11的 开始 和 搜索 两个菜单。当 打开开始时，会激活搜索，但是 WinExist 中不存在 搜索
         ; 所以主动激活，让其存在
-        if (!WinActive(hWnd))
+        ; 如果主动激活可能会导致 Settings 窗口被激活时激活其他窗口 导致无法在非激活状态关闭 Settings
+        if (!WinActive(hWnd) && WinGetProcessName(hWnd) != "SystemSettings.exe") 
             WinActivate(hWnd)
+        
         result := WinExist("ahk_id" hWnd " ahk_group TrayWnd")
         A_DetectHiddenWindows := temp
 
