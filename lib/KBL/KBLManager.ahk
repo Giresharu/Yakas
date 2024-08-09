@@ -65,6 +65,8 @@ class KBLManager {
             return
 
         hWnd := Util.WinGetID("A")
+        if (!hWnd)
+            return
 
         if (!KBLManager.GetWinProperties(hWnd, &winTitle, &path, &name, &pid))
             return
@@ -113,7 +115,13 @@ class KBLManager {
     }
 
     static OnWinActived(hWnd) {
+        temp := hWnd
         hWnd := Util.FixUWPWinID(hWnd)
+        if (!hWnd)
+            return
+
+        isUWP := hWnd != temp
+
         if (!KBLManager.GetWinProperties(hWnd, &winTitle, &path, &name, &pid))
             return
 
@@ -123,14 +131,14 @@ class KBLManager {
         ; 获取该窗口对应的状态是否已经存在
         result := KBLManager.TryGetState(pid, winTitle, _processSetting, &state, &regEx)
         if (!result)
-            KBLManager.CreateState(pid, path, name, hWnd, winTitle, _processSetting, regEx)
+            KBLManager.CreateState(pid, path, name, hWnd, winTitle, _processSetting, regEx, isUWP)
         else {
             ; 如果 processState 没有变化，则不做任何处理
             if (state == KBLManager.PreviousState)
                 return
             if (!GlobalSetting.StandAlong)
                 KBLManager.MakePreviousStateNotGlobal()
-            if (KBLManager.CheckIfNeedKeepStateValue(hWnd)) {
+            if (KBLManager.CheckIfNeedKeepStateValue(hWnd, isUWP)) {
                 OutputDebug("[ACTIVATED] 窗口 " winTitle " 位于 TrayWnd 配置中，状态复制上一个状态的值。`n")
                 state.CurrentLayout := KBLManager.PreviousState.CurrentLayout.Clone()
                 return
@@ -168,7 +176,7 @@ class KBLManager {
     }
 
     ; 创建该进程\窗口的状态
-    static CreateState(pid, path, name, hWnd, winTitle, _processSetting, regEx) {
+    static CreateState(pid, path, name, hWnd, winTitle, _processSetting, regEx, isUWP) {
 
         ; 如果之前没有运行过该进程，则新建一个 ProcessState
         if (!KBLManager.RunningProcessData.Has(pid)) {
@@ -215,7 +223,7 @@ class KBLManager {
             }
         }
 
-        if (KBLManager.CheckIfNeedKeepStateValue(hWnd)) {
+        if (KBLManager.CheckIfNeedKeepStateValue(hWnd, isUWP)) {
             OutputDebug("[CreateState] 窗口 " winTitle " 位于 TrayWnd 配置中，状态不使用默认值而改为复制上一个状态的值。`n")
             state.CurrentLayout := KBLManager.PreviousState.CurrentLayout.Clone()
             return
@@ -236,15 +244,18 @@ class KBLManager {
 
     }
 
-    static CheckIfNeedKeepStateValue(hWnd) {
+    static CheckIfNeedKeepStateValue(hWnd, isUWP) {
+        if (!KBLManager.PreviousState)
+            return false
+
         temp := A_DetectHiddenWindows
         A_DetectHiddenWindows := true
         ; 问题在于 Win11的 开始 和 搜索 两个菜单。当 打开开始时，会激活搜索，但是 WinExist 中不存在 搜索
         ; 所以主动激活，让其存在
-        ; 如果主动激活可能会导致 Settings 窗口被激活时激活其他窗口 导致无法在非激活状态关闭 Settings
-        if (!WinActive(hWnd) && WinGetProcessName(hWnd) != "SystemSettings.exe") 
+        ; 如果主动激活可能会导致 UWP 窗口被激活时激活其他窗口 导致无法在非激活状态关闭 UWP
+        if (!WinActive(hWnd) && !isUWP)
             WinActivate(hWnd)
-        
+
         result := WinExist("ahk_id" hWnd " ahk_group TrayWnd")
         A_DetectHiddenWindows := temp
 
@@ -343,9 +354,11 @@ class KBLManager {
     }
 
     static NextKBL(hotkey, hWnd := 0, _processState := 0) {
-        if (!hWnd)
+        if (!hWnd) {
             hWnd := Util.WinGetID("A")
-
+            if (!hWnd)
+                return
+        }
         ; 任务栏无法切换，所以不要白费功夫了
         ; if (WinActive("ahk_class Shell_TrayWnd ahk_exe explorer.exe")) {
         ;     OutputDebug("[NextKBL] Ignore: 因 API 限制，在任务栏中无法正常工作。 hotkey: " hotkey "`n")
@@ -369,7 +382,10 @@ class KBLManager {
             ; 保险起见，还是不应该处理，直接卡掉输入最好
             if (!result) {
                 OutputDebug("[NextKBL] Ignore: 当前窗口还为触发 OnWinActived 回调。 hotkey: " hotkey "`n")
-                return
+                KBLManager.OnWinActived(hWnd)
+                result := KBLManager.TryGetState(pid, winTitle, setting, &_processState, &regEx)
+                if (!result)
+                    return
             }
         }
 

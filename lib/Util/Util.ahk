@@ -12,23 +12,28 @@ class Util {
         while (!WinExist(hWnd))
             Sleep(1000 / 24)
 
-
-        if WinGetProcessName(hWnd) == "ApplicationFrameHost.exe" {
-            TrueWindow := 0
-            ; 因为加载速度的原因，ApplicationFrameHost 加载出来的时候，它的子窗口还没有完全加载出来，所以这里需要循环等待子窗口加载完成
-            startTime := A_TickCount
-            loop {
-                DllCall("EnumChildWindows", "ptr", hWnd, "ptr", CallbackCreate(EnumChildWindows, "F"), "uint", 0)
-                if TrueWindow != 0
-                    break
-                if A_TickCount - startTime > timeout
-                    break
-                Sleep(1000 / 24)
+        try {
+            if WinGetProcessName(hWnd) == "ApplicationFrameHost.exe" {
+                TrueWindow := 0
+                ; 因为加载速度的原因，ApplicationFrameHost 加载出来的时候，它的子窗口还没有完全加载出来，所以这里需要循环等待子窗口加载完成
+                startTime := A_TickCount
+                loop {
+                    DllCall("EnumChildWindows", "ptr", hWnd, "ptr", CallbackCreate(EnumChildWindows, "F"), "uint", 0)
+                    if TrueWindow != 0
+                        break
+                    if A_TickCount - startTime > timeout
+                        break
+                    Sleep(1000 / 24)
+                }
+                hWnd := TrueWindow
             }
-            hWnd := TrueWindow
+            return hWnd
+        } catch OSError as e {
+            if e.Message != "(5) 拒绝访问。"
+                throw e
+            else
+                return 0
         }
-
-        return hWnd
 
 
         EnumChildWindows(hwnd) {
