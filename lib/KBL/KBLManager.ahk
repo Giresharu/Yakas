@@ -119,15 +119,15 @@ class KBLManager {
         hWnd := Util.FixUWPWinID(hWnd)
         if (!hWnd)
             return
-
+        
         isUWP := hWnd != temp
-
+        
         if (!KBLManager.GetWinProperties(hWnd, &winTitle, &path, &name, &pid))
             return
-
+        
         OutputDebug("[ACTIVATED] winTitle: " winTitle " | class: " WinGetClass(hWnd) " | ID: " hWnd " | process: " name " | path: " path " | pid: " pid "`n")
         _processSetting := KBLManager.ReadProcessSetting(pid, path, name)
-
+        
         ; 获取该窗口对应的状态是否已经存在
         result := KBLManager.TryGetState(pid, winTitle, _processSetting, &state, &regEx)
         if (!result)
@@ -144,6 +144,7 @@ class KBLManager {
                 return
             }
             delay := state.CurrentLayout.ChangeStateDelay >= 0 ? state.CurrentLayout.ChangeStateDelay : GlobalSetting.Delay
+            Sleep(delay)
             ; AlwaysRecorveToDefault 时，自动恢复到默认状态，并根据配置解除大写锁定
             if (state.AlwaysRecorveToDefault) {
                 OutputDebug("RecoverToDefualtValue")
@@ -159,9 +160,6 @@ class KBLManager {
                 }
                 showToolTip := ToolTipSetting.EnableOnRecoverd
             } else {
-                ; if (name == "explorer.exe")
-                ;     Sleep(100)
-
                 KBLTool.SetKBL(hWnd, state.CurrentLayout.Name, state.CurrentLayout.ImeState, delay)
                 SetCapsLockState(state.CurrentLayout.CapsLockState ? "On" : "Off")
                 showToolTip := ToolTipSetting.EnableOnAutoSwitched
